@@ -15,7 +15,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app import vectorstore
-from app.chunking import Page, fixed_size_chunks
+from app.chunking import Page, fixed_size_chunks, structure_aware_chunks
 from app.config import settings
 from app.embeddings import embed_documents
 from app.models import Chunk, Document
@@ -66,11 +66,18 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
         raise FileNotFoundError(path)
 
     pages, empty = parse_pdf(path)
-    chunks = fixed_size_chunks(
-        pages,
-        chunk_tokens=settings.chunk_tokens,
-        overlap_tokens=settings.chunk_overlap_tokens,
-    )
+    if settings.chunk_strategy == "structure":
+        chunks = structure_aware_chunks(
+            pages,
+            max_tokens=settings.structure_max_tokens,
+            overlap_lines=settings.structure_overlap_lines,
+        )
+    else:
+        chunks = fixed_size_chunks(
+            pages,
+            chunk_tokens=settings.chunk_tokens,
+            overlap_tokens=settings.chunk_overlap_tokens,
+        )
     if not chunks:
         raise ValueError(
             f"{path.name}: no extractable text in any page "

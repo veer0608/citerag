@@ -15,10 +15,11 @@ from app.eval.run_eval import load_golden_set, run_eval
 from app.models import Chunk
 from tests.conftest import requires_db
 
-# Committed Phase 2 baseline: naive fixed-size chunking scored 0.3667 recall@5 over
-# the 30-question Berkshire golden set. Set a hair below to absorb float noise;
-# raise this as Phase 3 improvements land so regressions can't creep back in.
-RECALL_AT_5_THRESHOLD = 0.36
+# Committed recall@5 floor over the 30-question Berkshire golden set. Raised as
+# Phase 3 improvements land so regressions can't creep back in.
+#   Phase 2 baseline (fixed-size chunking):        0.367
+#   Phase 3 exp1 (structure-aware chunking, kept): 0.467  <- current
+RECALL_AT_5_THRESHOLD = 0.46
 
 
 @requires_db

@@ -105,8 +105,11 @@ def run_eval(
         "rerank_candidates": settings.rerank_candidates if rerank else None,
         "reranker_model": settings.reranker_model if rerank else None,
         "embedding_model": settings.embedding_model,
+        "chunk_strategy": settings.chunk_strategy,
         "chunk_tokens": settings.chunk_tokens,
         "chunk_overlap_tokens": settings.chunk_overlap_tokens,
+        "structure_max_tokens": settings.structure_max_tokens,
+        "structure_overlap_lines": settings.structure_overlap_lines,
     }
 
     if not golden:

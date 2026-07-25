@@ -118,16 +118,16 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 
 | Change | recall@5 | precision@5 | MRR | notes |
 |---|---|---|---|---|
-| Naive fixed-size chunking (500/50) | **0.367** | 0.10 | 0.188 | baseline — 11/30. Misses cluster on dense equity-holdings tables and cross-year figures. |
-| + structure-aware chunking | _tbd_ | | | Phase 3 |
-| + re-ranker | _tbd_ | | | Phase 3 |
+| Naive fixed-size chunking (500/50) | 0.367 | 0.10 | 0.188 | baseline — 11/30. |
+| + structure-aware chunking (page-bounded, 220-tok, line-preserving) | **0.467** | 0.147 | 0.302 | **+0.100.** 14/30. Diagnosis: naive windows spanned pages and diluted specific facts; smaller page-bounded chunks concentrate them. |
+| + re-ranker | _tbd_ | | | Phase 3 exp2 |
 
-**What the baseline's failures reveal (the Phase 3 to-do list):** the biggest miss
-cluster is the equity-holdings tables (Apple/Coca-Cola/BofA fair values per year) —
-each year's holdings sit in one dense, number-heavy chunk that the query embedding
-doesn't land near. Second is cross-year figures (e.g. "operating earnings in 2023"),
-where retrieval pulls the concept but from the wrong year. That points squarely at
-structure-aware chunking + a re-ranker, in that order.
+**How each change was chosen (not guessed):** the baseline misses split into two
+causes, found by checking whether the correct chunk was even in the top-20:
+- *Not in top-20* (most misses) — narrative letter facts diluted inside big
+  cross-page windows → **structure-aware chunking** (exp1, done: +0.100).
+- *In top-20 but out-ranked* (e.g. Apple's 2023 fair value sat at rank 6) →
+  **re-ranker** (exp2, next).
 
 ## Claude Code skills
 

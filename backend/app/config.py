@@ -37,9 +37,15 @@ class Settings(BaseSettings):
     # Embeddings
     embedding_model: str = "bge-small-en-v1.5"
 
-    # Chunking (Phase 1 defaults — deliberately naive, improved in Phase 3)
+    # Chunking. Strategy "fixed" = Phase 1 naive token windows; "structure" =
+    # Phase 3 page-bounded, line-preserving chunks (default — it lifted recall@5
+    # from 0.367 to 0.467 on the golden set).
+    chunk_strategy: str = "structure"
     chunk_tokens: int = 500
     chunk_overlap_tokens: int = 50
+    # Used only by the "structure" strategy.
+    structure_max_tokens: int = 220
+    structure_overlap_lines: int = 1
 
     # Retrieval
     retrieval_top_k: int = 5
