@@ -1,0 +1,156 @@
+# CiteRAG
+
+A retrieval-augmented generation system that answers questions over a **real, messy
+document set**, cites the exact source passage (with page number) for every answer,
+and — the part most tutorial RAG projects skip — ships a **golden-question eval
+harness that proves retrieval quality with numbers, not vibes**.
+
+> The one sentence this repo is built to support:
+> *"My naive retrieval got the right chunk about half the time. I built an eval set of
+> real questions, found the tables were getting split mid-row, fixed the chunking, then
+> added a re-ranker — recall went from X to Y. Here's the table."*
+
+## Corpus
+
+**Berkshire Hathaway annual reports, 2021–2023** (public, free, from
+`berkshirehathaway.com`). One company across three years is a deliberately hard
+retrieval target: dense financial tables, footnotes, boilerplate repeated across
+years, and exact numbers that must be pulled from the *right year's* table. That
+makes *"did it retrieve the right number from the right year"* an objective,
+writable eval question — the reason this beats clean Wikipedia/markdown corpora.
+
+Swap in your own PDFs by dropping them in `backend/data/corpus/` and re-running the
+seed script.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Vector store | **SQLite + [sqlite-vec](https://github.com/asg017/sqlite-vec)** (`vec0` virtual table, cosine). Zero-infra and fully local. The vector search is isolated in `app/vectorstore.py` — the one seam to swap for Postgres+pgvector later without touching the rest of the app. |
+| Backend | FastAPI |
+| ORM / migrations | SQLAlchemy 2 + Alembic |
+| Embeddings | **`bge-small-en-v1.5`** (local, 384-dim, no API key). Swappable to OpenAI `text-embedding-3-small` via `EMBEDDING_MODEL`. |
+| Re-ranker | `bge-reranker-base` cross-encoder (off by default; A/B'd in Phase 3) |
+| LLM answer step | OpenAI or Anthropic if a key is set; otherwise a labelled extractive fallback. **Retrieval and the entire eval harness need no LLM key.** |
+| Testing / CI | pytest / GitHub Actions |
+
+> Why SQLite+sqlite-vec instead of the originally-planned Postgres+pgvector: the
+> target machine (Windows 11 Home + Ryzen) couldn't run Docker Desktop — Memory
+> Integrity/VBS blocks its WSL2 engine. Rather than burn the build on infra, the
+> vector store was swapped for a zero-install local equivalent behind
+> `vectorstore.py`. The schema, migrations, citations, and the entire eval harness
+> are unchanged.
+
+## Quickstart
+
+No Docker, no database server — it's all local.
+
+```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate   # Windows; use .venv/bin/activate on macOS/Linux
+pip install -r requirements.txt
+
+# 1. Create the SQLite schema + the vec_chunks vector table.
+alembic upgrade head
+
+# 2. Seed the corpus (downloads the PDFs, then ingests them). First run also
+#    downloads the ~130MB bge-small embedding model.
+python scripts/seed_corpus.py
+
+# 3. Start the API.
+uvicorn app.main:app --reload
+
+# 4. Ask a question — every answer comes back with citations + page numbers.
+curl -s localhost:8000/query -H 'content-type: application/json' \
+  -d '{"question": "What was Berkshire’s insurance float at year-end 2022?"}'
+
+# 5. Run the eval harness on demand.
+curl -s 'localhost:8000/eval/run'
+```
+
+Health/config check: `curl -s localhost:8000/health`.
+
+## API
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/ingest` | Ingest one PDF by server path (`{"path": "...", "title": "..."}`) |
+| `POST` | `/query` | Retrieve top-k chunks + answer with citations |
+| `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set, store an `eval_runs` row |
+| `GET`  | `/health` | Effective config (embedding model/dim, reranker, LLM backend) |
+
+## How it works
+
+```
+PDF ──pdfplumber──▶ pages ──chunking.py──▶ chunks ──embeddings.py──▶ sqlite-vec
+                                                                        │
+question ──embed_query──▶ cosine top-k ──(optional) cross-encoder re-rank──▶ chunks
+                                                                        │
+                                                            llm.py: answer + citations
+```
+
+- `chunking.py` is isolated so the strategy can be swapped and unit-tested. Phase 1
+  is naive fixed-size token windows (500 tokens, 50 overlap).
+- Ingestion is **idempotent** (deterministic ids; re-ingesting replaces prior rows)
+  and surfaces empty/scanned pages instead of silently dropping them.
+- Every `eval_runs` row stores the exact retrieval config, so any future change is
+  compared against history, not just the last run.
+
+## Build phases
+
+- **Phase 1 — naive pipeline, end to end.** ✅ *(this scaffold)* Ingest → chunk →
+  embed → sqlite-vec search → answer with citations. Deliberately un-tuned, to create a
+  baseline to measure against.
+- **Phase 2 — measure before you fix.** Hand-write 25–40 real questions into
+  `backend/app/eval/golden_set.json`, run `run_eval.py`, and record a real baseline
+  (e.g. recall@5). Then commit that number as the regression threshold in
+  `tests/test_retrieval_recall.py`.
+- **Phase 3 — fix what the eval found broken**, in priority order (structure-aware
+  chunking for split tables → re-ranker → query rewriting), keeping only changes that
+  actually move the number.
+- **Phase 4 — the defensible layer.** Citations with page numbers (done), live
+  `/eval/run` (done), and CI asserting the recall threshold.
+
+## Results (before/after)
+
+Measured over a **30-question hand-written golden set** (`backend/app/eval/golden_set.json`)
+spanning the 2021–2023 reports, top_k=5. This table is the point of the project.
+
+| Change | recall@5 | precision@5 | MRR | notes |
+|---|---|---|---|---|
+| Naive fixed-size chunking (500/50) | **0.367** | 0.10 | 0.188 | baseline — 11/30. Misses cluster on dense equity-holdings tables and cross-year figures. |
+| + structure-aware chunking | _tbd_ | | | Phase 3 |
+| + re-ranker | _tbd_ | | | Phase 3 |
+
+**What the baseline's failures reveal (the Phase 3 to-do list):** the biggest miss
+cluster is the equity-holdings tables (Apple/Coca-Cola/BofA fair values per year) —
+each year's holdings sit in one dense, number-heavy chunk that the query embedding
+doesn't land near. Second is cross-year figures (e.g. "operating earnings in 2023"),
+where retrieval pulls the concept but from the wrong year. That points squarely at
+structure-aware chunking + a re-ranker, in that order.
+
+## Claude Code skills
+
+Repeatable workflows are packaged as project skills under `.claude/skills/`, so a
+fresh Claude Code session can operate the repo per the plan's rules:
+
+| Skill | Purpose |
+|---|---|
+| `run-citerag` | Bring up the stack, seed the corpus, smoke-test a real query |
+| `run-eval` | Run the eval harness, record the `eval_runs` row, update the before/after table |
+| `add-golden-questions` | Hand-write Phase 2 golden questions with robust ground-truth matching |
+| `retrieval-experiment` | Disciplined Phase 3 loop: one change → re-eval → keep only if the number improved |
+
+## Running tests
+
+```bash
+# Pure unit tests (chunking) run anywhere. DB-backed tests skip until the schema
+# is migrated (alembic upgrade head) and, for the query test, the corpus is seeded.
+cd backend && pytest
+```
+
+## Environment / config
+
+See `backend/.env.example`. Notable knobs (all recorded per eval run):
+`EMBEDDING_MODEL`, `RETRIEVAL_TOP_K`, `RERANK_ENABLED`, `RERANK_CANDIDATES`,
+`CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`.

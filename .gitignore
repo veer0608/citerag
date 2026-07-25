@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Env / secrets
+.env
+*.local
+
+# Data / model caches
+backend/data/corpus/*.pdf
+!backend/data/corpus/.gitkeep
+backend/data/*.db
+.cache/
+models/
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
