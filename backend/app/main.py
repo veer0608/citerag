@@ -26,6 +26,8 @@ def health() -> dict:
             if settings.openai_api_key
             else "anthropic"
             if settings.anthropic_api_key
+            else f"local:{settings.local_llm_model}"
+            if settings.local_llm_enabled
             else "extractive-fallback"
         ),
     }

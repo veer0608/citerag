@@ -7,6 +7,7 @@ work — retrieval and the whole eval harness never depend on this at all.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.config import settings
 from app.retrieval import RetrievedChunk
@@ -78,6 +79,45 @@ def _answer_anthropic(question: str, context: str) -> tuple[str, str]:
     return text, model
 
 
+@lru_cache
+def _local_model():
+    """Load the local instruct model once. Downloaded from HuggingFace on first
+    use (no API key), then cached on disk. CPU-friendly small model."""
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    name = settings.local_llm_model
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    model = AutoModelForCausalLM.from_pretrained(name, torch_dtype=torch.float32)
+    model.eval()
+    return tokenizer, model
+
+
+def _answer_local(question: str, context: str) -> tuple[str, str]:
+    """Synthesize an answer with a small local LLM — free, no key, runs on CPU."""
+    import torch
+
+    tokenizer, model = _local_model()
+    messages = [
+        {"role": "system", "content": _SYSTEM},
+        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+    ]
+    prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    inputs = tokenizer(prompt, return_tensors="pt")
+    with torch.no_grad():
+        generated = model.generate(
+            **inputs,
+            max_new_tokens=256,
+            do_sample=False,  # greedy: faster on CPU and deterministic
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    new_tokens = generated[0][inputs["input_ids"].shape[1] :]
+    text = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+    return text, settings.local_llm_model
+
+
 def answer(question: str, chunks: list[RetrievedChunk]) -> Answer:
     citations = _citations(chunks)
     context = _format_context(chunks)
@@ -86,6 +126,8 @@ def answer(question: str, chunks: list[RetrievedChunk]) -> Answer:
         text, model = _answer_openai(question, context)
     elif settings.anthropic_api_key:
         text, model = _answer_anthropic(question, context)
+    elif settings.local_llm_enabled:
+        text, model = _answer_local(question, context)
     else:
         # No key: return the top passages verbatim so the endpoint still works and
         # citations are still exact. This is clearly labelled, not a silent stub.

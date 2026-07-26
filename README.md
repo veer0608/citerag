@@ -31,7 +31,7 @@ seed script.
 | ORM / migrations | SQLAlchemy 2 + Alembic |
 | Embeddings | **`bge-small-en-v1.5`** (local, 384-dim, no API key). Swappable to OpenAI `text-embedding-3-small` via `EMBEDDING_MODEL`. |
 | Re-ranker | `bge-reranker-base` cross-encoder (off by default; A/B'd in Phase 3) |
-| LLM answer step | OpenAI or Anthropic if a key is set; otherwise a labelled extractive fallback. **Retrieval and the entire eval harness need no LLM key.** |
+| LLM answer step | Priority: OpenAI → Anthropic (if a key is set) → **local `Qwen2.5-0.5B-Instruct`** (free, no key, runs on CPU via `LOCAL_LLM_ENABLED=true`) → labelled extractive fallback. **Retrieval and the entire eval harness need no LLM at all.** |
 | Testing / CI | pytest / GitHub Actions |
 
 > Why SQLite+sqlite-vec instead of the originally-planned Postgres+pgvector: the

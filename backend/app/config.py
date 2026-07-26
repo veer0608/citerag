@@ -30,7 +30,11 @@ HF_EMBEDDING_IDS: dict[str, str] = {
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Absolute .env path so the file is found no matter which directory the
+    # process was launched from (same reasoning as the absolute DB path above).
+    model_config = SettingsConfigDict(
+        env_file=str(_BACKEND_DIR / ".env"), extra="ignore"
+    )
 
     database_url: str = _DEFAULT_DATABASE_URL
 
@@ -55,9 +59,14 @@ class Settings(BaseSettings):
     rerank_candidates: int = 20
     reranker_model: str = "BAAI/bge-reranker-base"
 
-    # LLM answer step (optional — retrieval + eval work without any key)
+    # LLM answer step. Priority: OpenAI key -> Anthropic key -> local model ->
+    # extractive fallback. Retrieval + eval never depend on any of this.
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
+    # Local instruct model — free, no API key, runs on CPU. Off by default so CI
+    # and tests don't pull a model; the local server turns it on via LOCAL_LLM_ENABLED.
+    local_llm_enabled: bool = False
+    local_llm_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
 
     @property
     def embedding_dim(self) -> int:
