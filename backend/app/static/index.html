@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CiteRAG</title>
+<style>
+  :root {
+    --bg: #faf9f7; --card: #ffffff; --ink: #1c1917; --muted: #78716c;
+    --line: #e7e5e4; --accent: #6366f1; --accent-ink: #ffffff; --chip: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917; --card: #262322; --ink: #ededeb; --muted: #a8a29e;
+      --line: #3a3633; --accent: #818cf8; --accent-ink: #1c1917; --chip: #332f2c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 26px; margin: 0 0 2px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 13.5px; }
+  form { display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; font-size: 15px; border: 1px solid var(--line);
+    border-radius: 10px; background: var(--card); color: var(--ink); outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button {
+    padding: 12px 18px; font-size: 15px; font-weight: 600; border: 0;
+    border-radius: 10px; background: var(--accent); color: var(--accent-ink);
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.55; cursor: default; }
+  .examples { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 7px; }
+  .ex {
+    font-size: 12.5px; color: var(--muted); background: var(--chip);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  }
+  .ex:hover { color: var(--ink); border-color: var(--accent); }
+  #out { margin-top: 26px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 14px;
+  }
+  .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .answer { font-size: 16px; line-height: 1.6; white-space: pre-wrap; }
+  .cites { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .cite {
+    font-size: 12.5px; font-weight: 600; background: var(--chip);
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px;
+  }
+  .src { border-top: 1px solid var(--line); padding: 12px 0 2px; }
+  .src:first-of-type { border-top: 0; padding-top: 0; }
+  .srcmeta { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .srctext { font-size: 13px; color: var(--ink); }
+  .model { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -2px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .err { color: #dc2626; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CiteRAG</h1>
+  <p class="sub">Ask a question about Berkshire Hathaway's 2021–2023 annual reports. Every answer cites the source passages, with page numbers.</p>
+
+  <form id="f">
+    <input id="q" type="text" autocomplete="off" placeholder="e.g. What interest did Berkshire acquire in Pilot Travel Centers?" />
+    <button id="btn" type="submit">Ask</button>
+  </form>
+
+  <div class="examples" id="ex"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+  const EXAMPLES = [
+    "By how much did Berkshire's insurance float grow during 2022?",
+    "What was the fair value of Berkshire's Apple stake at year-end 2023?",
+    "What interest did Berkshire acquire in Pilot Travel Centers?",
+    "Which eight investees did Berkshire highlight in its 2022 letter?",
+  ];
+  const q = document.getElementById("q");
+  const btn = document.getElementById("btn");
+  const out = document.getElementById("out");
+  const exWrap = document.getElementById("ex");
+
+  EXAMPLES.forEach(t => {
+    const c = document.createElement("span");
+    c.className = "ex"; c.textContent = t;
+    c.onclick = () => { q.value = t; ask(); };
+    exWrap.appendChild(c);
+  });
+
+  const esc = s => s.replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
+
+  async function ask() {
+    const question = q.value.trim();
+    if (!question) return;
+    btn.disabled = true;
+    out.innerHTML = '<div class="card"><span class="spinner"></span>Retrieving passages and generating a grounded answer… (local model, ~10–25s)</div>';
+    try {
+      const r = await fetch("/query", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      render(d);
+    } catch (e) {
+      out.innerHTML = '<div class="card err">Request failed: ' + esc(String(e.message || e)) + "</div>";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function render(d) {
+    const cites = (d.citations || [])
+      .map(c => '<span class="cite">[' + c.marker + "] p" + (c.page_number ?? "?") + "</span>")
+      .join("");
+    const sources = (d.chunks || []).map((c, i) => {
+      const text = c.content.replace(/\s+/g, " ").slice(0, 320);
+      return '<div class="src"><div class="srcmeta">[' + (i + 1) + "] page " + (c.page_number ?? "?") +
+        " · score " + Number(c.score).toFixed(3) + '</div><div class="srctext">' + esc(text) + "…</div></div>";
+    }).join("");
+    out.innerHTML =
+      '<div class="card"><p class="label">Answer</p><div class="answer">' + esc(d.answer || "") + "</div>" +
+      (cites ? '<div class="cites">' + cites + "</div>" : "") +
+      '<div class="model">model: ' + esc(d.model || "") + "</div></div>" +
+      '<div class="card"><p class="label">Retrieved sources</p>' + sources + "</div>";
+  }
+
+  document.getElementById("f").addEventListener("submit", e => { e.preventDefault(); ask(); });
+  q.focus();
+</script>
+</body>
+</html>
