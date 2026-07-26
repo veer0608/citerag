@@ -133,7 +133,9 @@ causes, found by checking whether the correct chunk was even in the top-20:
 
 Cost note: the re-ranker adds a ~1.1GB cross-encoder and per-query latency. It's on
 by default because it's the best-scoring config; set `RERANK_ENABLED=false` to skip
-it. The CI regression gate deliberately tests the cheaper vector-only floor (0.46).
+it. **CI** ingests the whole corpus and asserts the vector-only recall floor (0.43,
+one question below the measured 0.467 to absorb cross-platform float jitter) — the
+"assert a real number, not just that it built" gate — without needing the reranker.
 
 **Still on the table (honest remaining gap — 15/30 still miss):** the equity-holdings
 fair-value tables and a few narrative facts that phrase the answer very differently

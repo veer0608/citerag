@@ -4,9 +4,22 @@ on:
   push:
   pull_request:
 
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Keep CI on the vector-only path so it never needs the ~1.1GB reranker.
+      # The recall gate tests rerank=False anyway; /query honours this too.
+      RERANK_ENABLED: "false"
+      CHUNK_STRATEGY: "structure"
+      HF_HUB_DISABLE_SYMLINKS_WARNING: "1"
 
     defaults:
       run:
@@ -23,16 +36,34 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # Cache the embedding model (~130MB) so every run doesn't re-download it.
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-bge-small-v1
+
+      # Cache the corpus PDFs, both for speed and to pin the exact files the golden
+      # set's page numbers were written against.
+      - name: Cache corpus PDFs
+        uses: actions/cache@v4
+        with:
+          path: backend/data/corpus
+          key: corpus-berkshire-2021-2023-v1
+
       - name: Run migrations (creates SQLite schema + vec_chunks)
         run: alembic upgrade head
 
-      - name: Run tests
-        run: pytest
+      # Fast, dependency-free feedback before the heavier ingest step.
+      - name: Unit tests (chunking)
+        run: pytest tests/test_chunking.py
 
-      # TODO(Phase 4): once golden_set.json has questions and a baseline recall@5
-      # is committed, seed the corpus and assert the threshold here — the "assert a
-      # real number, not just that it built" gate:
-      #   - name: Seed corpus
-      #     run: python scripts/seed_corpus.py
-      #   - name: Assert retrieval recall
-      #     run: pytest tests/test_retrieval_recall.py
+      # Download (if not cached) + ingest + embed the corpus. This is what makes the
+      # recall assertion below a real number rather than "it built".
+      - name: Seed corpus
+        run: python scripts/seed_corpus.py
+
+      # The gate: assert recall@5 stays at/above the committed floor, plus an
+      # end-to-end /query check. Fails the build if retrieval quality regresses.
+      - name: Assert retrieval recall + query endpoint
+        run: pytest tests/test_retrieval_recall.py tests/test_query_endpoint.py -v

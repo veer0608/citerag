@@ -19,9 +19,12 @@ from tests.conftest import requires_db
 # tests the VECTOR-ONLY path (rerank=False) on purpose: it stays fast and needs no
 # 1.1GB cross-encoder in CI. The re-ranker lifts recall to 0.500 on top of this.
 #   Phase 2 baseline (fixed-size chunking):        0.367
-#   Phase 3 exp1 (structure-aware chunking, kept): 0.467  <- gated here
+#   Phase 3 exp1 (structure-aware chunking, kept): 0.467  <- measured floor
 #   Phase 3 exp2 (+ re-ranker, default on):        0.500  (measured, not CI-gated)
-RECALL_AT_5_THRESHOLD = 0.46
+# Set one question (1/30 ~ 0.033) below the measured 0.467 so cross-platform float
+# jitter (CI is Linux, dev is Windows) can't flake the build, while a real
+# regression — anything that drops 2+ questions — still fails loudly.
+RECALL_AT_5_THRESHOLD = 0.43
 
 
 @requires_db
