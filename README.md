@@ -119,15 +119,26 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 | Change | recall@5 | precision@5 | MRR | notes |
 |---|---|---|---|---|
 | Naive fixed-size chunking (500/50) | 0.367 | 0.10 | 0.188 | baseline — 11/30. |
-| + structure-aware chunking (page-bounded, 220-tok, line-preserving) | **0.467** | 0.147 | 0.302 | **+0.100.** 14/30. Diagnosis: naive windows spanned pages and diluted specific facts; smaller page-bounded chunks concentrate them. |
-| + re-ranker | _tbd_ | | | Phase 3 exp2 |
+| + structure-aware chunking (page-bounded, 220-tok, line-preserving) | 0.467 | 0.147 | 0.302 | +0.100. 14/30. Diagnosis: naive windows spanned pages and diluted specific facts; smaller page-bounded chunks concentrate them. |
+| + re-ranker (bge-reranker-base, top-20 → top-5) | **0.500** | 0.173 | **0.365** | +0.033 recall, but MRR 0.302 → 0.365 — the right chunk, when found, ranks higher. 15/30. |
+
+**Net: recall@5 0.367 → 0.500 (+36%), MRR 0.188 → 0.365 (nearly 2×).**
 
 **How each change was chosen (not guessed):** the baseline misses split into two
 causes, found by checking whether the correct chunk was even in the top-20:
 - *Not in top-20* (most misses) — narrative letter facts diluted inside big
-  cross-page windows → **structure-aware chunking** (exp1, done: +0.100).
+  cross-page windows → **structure-aware chunking** (exp1: +0.100, the bigger win).
 - *In top-20 but out-ranked* (e.g. Apple's 2023 fair value sat at rank 6) →
-  **re-ranker** (exp2, next).
+  **re-ranker** (exp2: +0.033 recall, larger MRR gain).
+
+Cost note: the re-ranker adds a ~1.1GB cross-encoder and per-query latency. It's on
+by default because it's the best-scoring config; set `RERANK_ENABLED=false` to skip
+it. The CI regression gate deliberately tests the cheaper vector-only floor (0.46).
+
+**Still on the table (honest remaining gap — 15/30 still miss):** the equity-holdings
+fair-value tables and a few narrative facts that phrase the answer very differently
+from the question. Next lever would be query rewriting (restate the question in the
+document's vocabulary before embedding) — not yet done.
 
 ## Claude Code skills
 

@@ -47,9 +47,11 @@ class Settings(BaseSettings):
     structure_max_tokens: int = 220
     structure_overlap_lines: int = 1
 
-    # Retrieval
+    # Retrieval. Re-ranking is on by default (Phase 3 exp2): embed the top
+    # `rerank_candidates`, then cross-encode down to `retrieval_top_k`. It lifted
+    # recall@5 0.467 -> 0.500 and MRR 0.302 -> 0.365 on the golden set.
     retrieval_top_k: int = 5
-    rerank_enabled: bool = False
+    rerank_enabled: bool = True
     rerank_candidates: int = 20
     reranker_model: str = "BAAI/bge-reranker-base"
 

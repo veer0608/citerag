@@ -15,10 +15,12 @@ from app.eval.run_eval import load_golden_set, run_eval
 from app.models import Chunk
 from tests.conftest import requires_db
 
-# Committed recall@5 floor over the 30-question Berkshire golden set. Raised as
-# Phase 3 improvements land so regressions can't creep back in.
+# Committed recall@5 floor over the 30-question Berkshire golden set. This gate
+# tests the VECTOR-ONLY path (rerank=False) on purpose: it stays fast and needs no
+# 1.1GB cross-encoder in CI. The re-ranker lifts recall to 0.500 on top of this.
 #   Phase 2 baseline (fixed-size chunking):        0.367
-#   Phase 3 exp1 (structure-aware chunking, kept): 0.467  <- current
+#   Phase 3 exp1 (structure-aware chunking, kept): 0.467  <- gated here
+#   Phase 3 exp2 (+ re-ranker, default on):        0.500  (measured, not CI-gated)
 RECALL_AT_5_THRESHOLD = 0.46
 
 
