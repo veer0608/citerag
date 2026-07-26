@@ -101,15 +101,13 @@ question ──embed_query──▶ cosine top-k ──(optional) cross-encoder 
 - **Phase 1 — naive pipeline, end to end.** ✅ *(this scaffold)* Ingest → chunk →
   embed → sqlite-vec search → answer with citations. Deliberately un-tuned, to create a
   baseline to measure against.
-- **Phase 2 — measure before you fix.** Hand-write 25–40 real questions into
-  `backend/app/eval/golden_set.json`, run `run_eval.py`, and record a real baseline
-  (e.g. recall@5). Then commit that number as the regression threshold in
-  `tests/test_retrieval_recall.py`.
-- **Phase 3 — fix what the eval found broken**, in priority order (structure-aware
-  chunking for split tables → re-ranker → query rewriting), keeping only changes that
-  actually move the number.
-- **Phase 4 — the defensible layer.** Citations with page numbers (done), live
-  `/eval/run` (done), and CI asserting the recall threshold.
+- **Phase 2 — measure before you fix.** ✅ 30-question hand-written golden set;
+  baseline recall@5 = 0.367 recorded and committed as a regression gate.
+- **Phase 3 — fix what the eval found broken.** ✅ structure-aware chunking
+  (0.367 → 0.467) then re-ranker (0.467 → 0.500), each measured and kept only
+  because the number moved. Query rewriting is the next lever but needs an LLM key.
+- **Phase 4 — the defensible layer.** ✅ citations with page numbers, live
+  `/eval/run`, and CI that ingests the corpus and asserts the recall gate.
 
 ## Results (before/after)
 
