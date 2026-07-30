@@ -6,6 +6,7 @@ work — retrieval and the whole eval harness never depend on this at all.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -14,16 +15,42 @@ from app.retrieval import RetrievedChunk
 
 _SYSTEM = (
     "You answer strictly from the provided context passages. Every claim must be "
-    "grounded in a passage. Cite the passages you used by their [n] marker. If the "
+    "grounded in a passage, and you MUST cite the passage you used by writing its "
+    "marker in square brackets — for example: Berkshire paid $3.3 billion in "
+    "federal income taxes [2]. Cite every sentence that states a fact. If the "
     "answer is not in the context, say you don't know."
 )
+
+# A citation marker in the answer text: "[2]". Bounded to two digits — a longer
+# bracketed number is a figure from the source, not a marker.
+_MARKER_RE = re.compile(r"\[(\d{1,2})\]")
+
+
+def used_markers(text: str, n_passages: int) -> list[int]:
+    """The passage markers the answer actually cites, in order, de-duplicated.
+
+    Markers outside 1..n_passages are dropped: a model that invents "[9]" against
+    5 passages has cited nothing real, and passing it through would produce a
+    citation pointing at no source.
+    """
+    seen: list[int] = []
+    for raw in _MARKER_RE.findall(text):
+        m = int(raw)
+        if 1 <= m <= n_passages and m not in seen:
+            seen.append(m)
+    return seen
 
 
 @dataclass
 class Answer:
     text: str
-    citations: list[dict]  # [{marker, chunk_id, document_id, page_number}]
+    # Only the passages the answer actually cited — NOT the whole retrieved pool.
+    citations: list[dict]
     model: str
+    # True when the answer asserts something but cites no passage. The claim may
+    # still be correct, but nothing in the response backs it up, so a caller should
+    # treat it as unverified rather than sourced.
+    uncited: bool = False
 
 
 def _cite_page(chunk: RetrievedChunk) -> str:
@@ -44,17 +71,23 @@ def _format_context(chunks: list[RetrievedChunk]) -> str:
     return "\n\n".join(blocks)
 
 
-def _citations(chunks: list[RetrievedChunk]) -> list[dict]:
+def _citations(chunks: list[RetrievedChunk], markers: list[int]) -> list[dict]:
+    """Build citation records for just the markers the answer used.
+
+    `markers` are 1-based positions into `chunks` (already range-checked), so the
+    result is the passages actually cited rather than everything retrieved. The full
+    retrieved pool is still returned separately by /query as `chunks`.
+    """
     return [
         {
-            "marker": i,
-            "chunk_id": str(c.chunk_id),
-            "document_id": str(c.document_id),
-            "page_number": c.page_number,
-            "page_label": c.page_label,
-            "page_citation": _cite_page(c),
+            "marker": m,
+            "chunk_id": str(chunks[m - 1].chunk_id),
+            "document_id": str(chunks[m - 1].document_id),
+            "page_number": chunks[m - 1].page_number,
+            "page_label": chunks[m - 1].page_label,
+            "page_citation": _cite_page(chunks[m - 1]),
         }
-        for i, c in enumerate(chunks, start=1)
+        for m in markers
     ]
 
 
@@ -131,7 +164,6 @@ def _answer_local(question: str, context: str) -> tuple[str, str]:
 
 
 def answer(question: str, chunks: list[RetrievedChunk]) -> Answer:
-    citations = _citations(chunks)
     context = _format_context(chunks)
 
     if settings.openai_api_key:
@@ -141,13 +173,22 @@ def answer(question: str, chunks: list[RetrievedChunk]) -> Answer:
     elif settings.local_llm_enabled:
         text, model = _answer_local(question, context)
     else:
-        # No key: return the top passages verbatim so the endpoint still works and
-        # citations are still exact. This is clearly labelled, not a silent stub.
+        # No key: return the top passage verbatim so the endpoint still works. It
+        # quotes passage [1], so that marker is a true citation, not a stub.
         top = chunks[0].content if chunks else "(no chunks retrieved)"
         text = (
-            "[no LLM key configured — returning top retrieved passage verbatim]\n\n"
-            f"{top}"
+            "[no LLM key configured — returning top retrieved passage [1] verbatim]"
+            f"\n\n{top}"
         )
         model = "extractive-fallback"
 
-    return Answer(text=text, citations=citations, model=model)
+    # Citations are derived from the answer text, so they describe what was actually
+    # used. A confident-looking answer that cites nothing is reported as uncited
+    # rather than being dressed up with the whole retrieved pool.
+    markers = used_markers(text, len(chunks))
+    return Answer(
+        text=text,
+        citations=_citations(chunks, markers),
+        model=model,
+        uncited=bool(chunks) and not markers,
+    )

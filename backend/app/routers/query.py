@@ -47,7 +47,11 @@ class QueryResponse(BaseModel):
     model: str
     # The score_type shared by every chunk below (null when nothing was retrieved).
     score_type: str | None
+    # Only the passages the answer's [n] markers actually cite — a subset of
+    # `chunks`, which is the full retrieved pool the model was shown.
     citations: list[Citation]
+    # True when the answer cites no passage: treat it as unverified, not sourced.
+    uncited: bool
     chunks: list[RetrievedChunkOut]
 
 
@@ -63,6 +67,7 @@ def query(req: QueryRequest, session: Session = Depends(get_session)) -> QueryRe
         model=result.model,
         score_type=chunks[0].score_type if chunks else None,
         citations=[Citation(**c) for c in result.citations],
+        uncited=result.uncited,
         chunks=[
             RetrievedChunkOut(
                 chunk_id=str(c.chunk_id),

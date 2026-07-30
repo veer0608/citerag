@@ -84,6 +84,19 @@ Health/config check: `curl -s localhost:8000/health`.
 produce numbers on incompatible ranges, so a bare score can't be compared across
 configs or rendered as a bar without it.
 
+**`citations` are the passages the answer actually cited**, parsed from the `[n]`
+markers in the answer text — a *subset* of `chunks`, which is the full retrieved pool
+the model was shown. Markers outside that range are dropped (a model inventing `[9]`
+against 5 passages has cited nothing real). When an answer asserts something and cites
+nothing, the response sets **`uncited: true`** and the UI labels it unverified rather
+than attaching the retrieved pool as if it were support.
+
+> Caveat worth knowing: the default local model (`Qwen2.5-0.5B-Instruct`) does **not**
+> follow the marker instruction, so its answers come back `uncited` even when correct.
+> Citations populate as intended with a hosted model (`OPENAI_API_KEY` /
+> `ANTHROPIC_API_KEY`). Reporting that honestly is the point — the previous behaviour
+> returned all five passages as "citations" regardless of what the answer used.
+
 ## How it works
 
 ```
