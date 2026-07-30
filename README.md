@@ -122,6 +122,16 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 
 **Net: recall@5 0.367 → 0.500 (+36%), MRR 0.188 → 0.365 (nearly 2×).**
 
+**What "recall@5" means here (verified, not assumed):** a question counts as hit only
+when a retrieved chunk *actually contains the answer* (whitespace-insensitive substring
+of the expected answer), not merely a chunk from the expected page. The eval also reports
+a looser `page_recall@5` for continuity. Tightening this in `run_eval.py` left the strict
+number unchanged (0.467 / 0.500) — confirming the headline was already answer-bearing —
+but the low `page_recall@5` (0.167) surfaced a separate bug: the golden set's
+`expected_page_numbers` are the page labels a human reads, while ingest stores the 1-based
+*physical* PDF index, and the two are offset by the reports' front matter. See the gap note
+below.
+
 **How each change was chosen (not guessed):** the baseline misses split into two
 causes, found by checking whether the correct chunk was even in the top-20:
 - *Not in top-20* (most misses) — narrative letter facts diluted inside big
@@ -139,6 +149,15 @@ one question below the measured 0.467 to absorb cross-platform float jitter) —
 fair-value tables and a few narrative facts that phrase the answer very differently
 from the question. Next lever would be query rewriting (restate the question in the
 document's vocabulary before embedding) — not yet done.
+
+**Known bug — citation page numbers are physical, not printed.** Ingest stores each
+chunk's 1-based *physical* PDF page index; the number printed on the page (and used by
+the golden set) is offset by the reports' cover/front matter, and the offset isn't even
+constant across the three years. So a returned citation of "page 6" may not match the "6"
+a reader sees on the page. This is why `page_recall@5` sits at 0.167 while answer-bearing
+recall is 0.467 — retrieval finds the right content, but the page label it cites is off.
+Fix options: label citations explicitly as "PDF page N", or extract printed labels at
+ingest and store both.
 
 ## Claude Code skills
 
