@@ -89,10 +89,11 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
     source_path = str(path)
     doc_id = _document_id(source_path)
 
-    # Idempotent: re-ingesting the same file replaces its prior rows. Vec rows have
-    # no FK cascade, so drop them explicitly before the document (which cascades to
-    # its chunk rows).
+    # Idempotent: re-ingesting the same file replaces its prior rows. Vec and FTS
+    # rows have no FK cascade, so drop them explicitly before the document (which
+    # cascades to its chunk rows).
     vectorstore.delete_document_vectors(session, doc_id)
+    vectorstore.delete_document_fts(session, doc_id)
     session.execute(delete(Document).where(Document.id == doc_id))
     session.flush()
 
@@ -123,6 +124,13 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
         for chunk, vector in zip(chunks, embeddings, strict=True)
     ]
     vectorstore.upsert_chunk_vectors(session, vec_rows)
+
+    # Same rowids feed the FTS5 keyword index used by hybrid retrieval.
+    fts_rows = [
+        (rowid_by_id[id_by_index[chunk.chunk_index]], chunk.content)
+        for chunk in chunks
+    ]
+    vectorstore.upsert_chunk_fts(session, fts_rows)
 
     session.commit()
 

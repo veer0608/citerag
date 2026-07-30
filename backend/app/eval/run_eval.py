@@ -84,9 +84,9 @@ class QuestionResult:
 
 
 def _evaluate_question(
-    session: Session, gq: GoldenQuestion, top_k: int, rerank: bool
+    session: Session, gq: GoldenQuestion, top_k: int, rerank: bool, hybrid: bool
 ) -> QuestionResult:
-    chunks = retrieve(session, gq.question, top_k=top_k, rerank=rerank)
+    chunks = retrieve(session, gq.question, top_k=top_k, rerank=rerank, hybrid=hybrid)
     rank: int | None = None
     n_relevant = 0
     page_hit = False
@@ -112,10 +112,12 @@ def run_eval(
     *,
     top_k: int | None = None,
     rerank: bool | None = None,
+    hybrid: bool | None = None,
     persist: bool = True,
 ) -> dict:
     top_k = settings.retrieval_top_k if top_k is None else top_k
     rerank = settings.rerank_enabled if rerank is None else rerank
+    hybrid = settings.hybrid_enabled if hybrid is None else hybrid
 
     golden = load_golden_set()
     config = {
@@ -123,6 +125,9 @@ def run_eval(
         "rerank_enabled": rerank,
         "rerank_candidates": settings.rerank_candidates if rerank else None,
         "reranker_model": settings.reranker_model if rerank else None,
+        "hybrid_enabled": hybrid,
+        "hybrid_candidates": settings.hybrid_candidates if hybrid else None,
+        "rrf_k": settings.rrf_k if hybrid else None,
         "embedding_model": settings.embedding_model,
         "chunk_strategy": settings.chunk_strategy,
         "chunk_tokens": settings.chunk_tokens,
@@ -145,7 +150,7 @@ def run_eval(
             _persist(session, config, metrics)
         return {"config": config, "metrics": metrics}
 
-    results = [_evaluate_question(session, gq, top_k, rerank) for gq in golden]
+    results = [_evaluate_question(session, gq, top_k, rerank, hybrid) for gq in golden]
     n = len(results)
     # recall_at_k / precision_at_k / mrr are all ANSWER-BEARING (strict): they count
     # only chunks that actually contain the answer. page_recall_at_k is the looser,

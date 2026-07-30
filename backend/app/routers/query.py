@@ -16,6 +16,7 @@ class QueryRequest(BaseModel):
     question: str
     top_k: int | None = None
     rerank: bool | None = None
+    hybrid: bool | None = None
 
 
 class Citation(BaseModel):
@@ -43,7 +44,9 @@ class QueryResponse(BaseModel):
 
 @router.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest, session: Session = Depends(get_session)) -> QueryResponse:
-    chunks = retrieve(session, req.question, top_k=req.top_k, rerank=req.rerank)
+    chunks = retrieve(
+        session, req.question, top_k=req.top_k, rerank=req.rerank, hybrid=req.hybrid
+    )
     result = answer(req.question, chunks)
     return QueryResponse(
         question=req.question,

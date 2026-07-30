@@ -9,6 +9,7 @@ rest of the app talks to `knn` / `upsert_chunk_vectors` and never to SQL directl
 """
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass
 
@@ -58,6 +59,75 @@ def chunk_rowids(session: Session, document_id: str) -> dict[str, int]:
         {"doc": document_id},
     )
     return {row.id: row.rowid for row in result}
+
+
+def upsert_chunk_fts(session: Session, rows: list[tuple[int, str]]) -> None:
+    """Insert (chunk_rowid, content) pairs into the FTS5 keyword index."""
+    if not rows:
+        return
+    session.execute(
+        text("INSERT INTO fts_chunks(rowid, content) VALUES (:rowid, :content)"),
+        [{"rowid": rowid, "content": content} for rowid, content in rows],
+    )
+
+
+def delete_document_fts(session: Session, document_id: str) -> None:
+    """Remove FTS rows for a document's chunks (virtual tables have no FK cascade)."""
+    session.execute(
+        text(
+            "DELETE FROM fts_chunks WHERE rowid IN "
+            "(SELECT rowid FROM chunks WHERE document_id = :doc)"
+        ),
+        {"doc": document_id},
+    )
+
+
+def _fts_match_query(query: str) -> str:
+    """Turn free text into a safe FTS5 MATCH expression.
+
+    FTS5 treats characters like " * : ( ) - as operators, so a raw question would
+    be a syntax error. Extract word/number tokens, quote each as a literal, and OR
+    them together — OR (not the default AND) keeps lexical recall high; precision is
+    recovered by the re-ranker downstream. Returns "" when there's nothing to match.
+    """
+    tokens = re.findall(r"\w+", query.lower())
+    return " OR ".join(f'"{t}"' for t in tokens)
+
+
+def keyword_search(session: Session, query: str, k: int) -> list[VecHit]:
+    """Return the k best chunks for a query by BM25 over the FTS5 index.
+
+    `distance` carries the raw BM25 score (lower = better in SQLite's bm25()), only
+    so the list stays ordered; hybrid fusion uses rank position, not the raw score.
+    """
+    match = _fts_match_query(query)
+    if not match:
+        return []
+    sql = text(
+        """
+        SELECT c.id, c.document_id, c.page_number, c.content, f.score
+        FROM (
+            SELECT rowid, bm25(fts_chunks) AS score
+            FROM fts_chunks
+            WHERE fts_chunks MATCH :q
+            ORDER BY score
+            LIMIT :k
+        ) AS f
+        JOIN chunks c ON c.rowid = f.rowid
+        ORDER BY f.score
+        """
+    )
+    result = session.execute(sql, {"q": match, "k": k})
+    return [
+        VecHit(
+            chunk_id=row.id,
+            document_id=row.document_id,
+            page_number=row.page_number,
+            content=row.content,
+            distance=float(row.score),
+        )
+        for row in result
+    ]
 
 
 def knn(session: Session, query_embedding: list[float], k: int) -> list[VecHit]:

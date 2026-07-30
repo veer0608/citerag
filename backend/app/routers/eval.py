@@ -14,7 +14,10 @@ router = APIRouter(tags=["eval"])
 def eval_run(
     top_k: int | None = None,
     rerank: bool | None = None,
+    hybrid: bool | None = None,
     persist: bool = True,
     session: Session = Depends(get_session),
 ) -> dict:
-    return run_eval(session, top_k=top_k, rerank=rerank, persist=persist)
+    return run_eval(
+        session, top_k=top_k, rerank=rerank, hybrid=hybrid, persist=persist
+    )
