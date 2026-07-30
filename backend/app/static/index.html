@@ -53,6 +53,8 @@
     font-size: 12.5px; font-weight: 600; background: var(--chip);
     border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px;
   }
+  /* Inferred citations are reconstructed, not declared — dashed to look provisional. */
+  .cite.inferred { font-weight: 500; border-style: dashed; background: transparent; }
   .src { border-top: 1px solid var(--line); padding: 12px 0 2px; }
   .src:first-of-type { border-top: 0; padding-top: 0; }
   .srcmeta { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
@@ -133,8 +135,16 @@
   function render(d) {
     // Prefer the page number printed on the page; fall back to the physical index.
     const pageOf = c => c.page_label ? "p" + c.page_label : (c.page_number != null ? "PDF p" + c.page_number : "p?");
+    // An inferred citation is weaker evidence than one the model declared, so it
+    // reads differently and names the figures that justified it.
     const cites = (d.citations || [])
-      .map(c => '<span class="cite">[' + c.marker + "] " + esc(pageOf(c)) + "</span>")
+      .map(c => {
+        const why = (c.matched_figures || []).join(", ");
+        const cls = c.inferred ? "cite inferred" : "cite";
+        const tip = c.inferred ? ' title="inferred by matching: ' + esc(why) + '"' : "";
+        return '<span class="' + cls + '"' + tip + ">[" + c.marker + "] " + esc(pageOf(c)) +
+          (c.inferred && why ? " · " + esc(why) : "") + "</span>";
+      })
       .join("");
     const sources = (d.chunks || []).map((c, i) => {
       const text = c.content.replace(/\s+/g, " ").slice(0, 320);
@@ -146,9 +156,11 @@
     }).join("");
     // Citations are the passages the answer actually cited. If it cited none, say so
     // rather than showing the retrieved pool as though it backed the answer up.
-    const cited = cites
-      ? '<div class="cites">' + cites + "</div>"
-      : (d.uncited ? '<div class="warn">⚠ This answer cites no passage — treat it as unverified. The retrieved passages below are what the model was shown.</div>' : "");
+    const note = !d.uncited ? ""
+      : cites
+        ? '<div class="warn">⚠ The model cited no passage. These citations were <b>inferred</b> by matching figures in the answer against the retrieved passages — weaker evidence than a citation the model declared.</div>'
+        : '<div class="warn">⚠ This answer cites no passage, and none of its figures could be matched to the retrieved passages. Treat it as unverified.</div>';
+    const cited = (cites ? '<div class="cites">' + cites + "</div>" : "") + note;
     out.innerHTML =
       '<div class="card"><p class="label">Answer</p><div class="answer">' + esc(d.answer || "") + "</div>" +
       cited +

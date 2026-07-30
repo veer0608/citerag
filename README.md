@@ -91,11 +91,23 @@ against 5 passages has cited nothing real). When an answer asserts something and
 nothing, the response sets **`uncited: true`** and the UI labels it unverified rather
 than attaching the retrieved pool as if it were support.
 
-> Caveat worth knowing: the default local model (`Qwen2.5-0.5B-Instruct`) does **not**
-> follow the marker instruction, so its answers come back `uncited` even when correct.
-> Citations populate as intended with a hosted model (`OPENAI_API_KEY` /
-> `ANTHROPIC_API_KEY`). Reporting that honestly is the point — the previous behaviour
-> returned all five passages as "citations" regardless of what the answer used.
+**When the model cites nothing, citations are reconstructed rather than abandoned.**
+The default local model (`Qwen2.5-0.5B-Instruct`) does *not* follow the marker
+instruction — it answers correctly but silently. Rather than leave those answers with no
+provenance, the answer's distinctive figures are matched back against the retrieved
+passages, and the passages containing them are returned with **`inferred: true`** plus
+the `matched_figures` that justified each one. The UI renders these dashed and labelled,
+because reconstructed provenance is weaker evidence than a citation the model declared.
+
+Guards keep inference from manufacturing support: a figure must look like a claim
+(decimal, `%`, or 3+ digits — so date components like "January **31**" are skipped),
+bare years are ignored as boilerplate, and at most 3 passages are attributed so an
+echoed figure can't quietly re-attach the whole retrieved pool.
+
+Worked example — the local model answers *"an additional 41.4% interest in Pilot Travel
+Centers on January 31, 2023"* with no markers, and inference attributes it to the three
+passages that actually contain "41.4%" (verified: they read *"an agreement to acquire an
+additional 41.4% of Pilot"*), on printed pages `K-58`, `K-85` and `K-112`.
 
 ## How it works
 

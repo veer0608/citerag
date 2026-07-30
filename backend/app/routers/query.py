@@ -26,6 +26,12 @@ class Citation(BaseModel):
     page_number: int | None  # physical 1-based index in the PDF
     page_label: str | None  # number printed on the page ("7", "K-83")
     page_citation: str  # human-facing form, e.g. "page K-83 (PDF page 98)"
+    # False = the model declared this citation via an [n] marker. True = the model
+    # cited nothing and this was attributed afterwards by matching the answer's
+    # figures against the passage. Weaker evidence — don't present them as equal.
+    inferred: bool
+    # For an inferred citation, the answer figures found in this passage.
+    matched_figures: list[str]
 
 
 class RetrievedChunkOut(BaseModel):
@@ -47,10 +53,12 @@ class QueryResponse(BaseModel):
     model: str
     # The score_type shared by every chunk below (null when nothing was retrieved).
     score_type: str | None
-    # Only the passages the answer's [n] markers actually cite — a subset of
-    # `chunks`, which is the full retrieved pool the model was shown.
+    # The passages backing the answer — a subset of `chunks`, which is the full
+    # retrieved pool. Either the model's own [n] markers, or (when it cited nothing)
+    # passages attributed by figure matching and flagged `inferred`.
     citations: list[Citation]
-    # True when the answer cites no passage: treat it as unverified, not sourced.
+    # True when the MODEL cited nothing — still true when citations were inferred, so
+    # a caller can tell declared provenance from reconstructed provenance.
     uncited: bool
     chunks: list[RetrievedChunkOut]
 

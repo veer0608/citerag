@@ -26,6 +26,71 @@ _SYSTEM = (
 _MARKER_RE = re.compile(r"\[(\d{1,2})\]")
 
 
+# A figure in the answer worth checking against the passages: "41.4%", "3.3",
+# "174,347". Financial answers turn on numbers, so these are the claims that can be
+# verified mechanically.
+_FIGURE_RE = re.compile(r"\d[\d,.]*%?")
+
+# A bare calendar year — date boilerplate rather than a claim-specific figure.
+_YEAR_RE = re.compile(r"^(19|20)\d{2}$")
+
+# Ceiling on inferred citations, so weak attribution can never re-attach the whole
+# retrieved pool as "support" — the exact failure this fix exists to remove.
+MAX_INFERRED = 3
+
+
+def _squash(text: str) -> str:
+    """Lowercase and drop whitespace/commas, so "174,347" matches "174347"."""
+    return re.sub(r"[\s,]+", "", text).lower()
+
+
+def infer_citations(
+    text: str, chunks: list[RetrievedChunk]
+) -> list[tuple[int, list[str]]]:
+    """Attribute an UNCITED answer to the passages that actually support it.
+
+    Returns [(marker, figures_matched)] ranked by how much of the answer a passage
+    accounts for. Used only when the model declared no markers of its own — a weak
+    model can be right without citing, and leaving those answers with no provenance
+    at all is worse than saying which passages contain their figures.
+
+    Guards, each removing a way this could manufacture false support:
+      * a figure must look like a claim — carry a decimal point or '%', or run to 3+
+        digits. Short bare integers are date components ("January 31") and counts,
+        and because passage text is compared with separators stripped, a "31" also
+        substring-matches inside unrelated numbers like "31,089";
+      * bare years ("2023") are ignored: date boilerplate present in nearly every
+        passage, so finding one says nothing about the specific claim;
+      * at most MAX_INFERRED passages are returned, so a figure echoed across the
+        pool can't quietly re-attach the entire retrieved set as "support".
+    """
+    if not chunks:
+        return []
+    squashed = [_squash(c.content) for c in chunks]
+
+    figures: list[str] = []
+    for raw in _FIGURE_RE.findall(text):
+        fig = raw.strip(".,")
+        if fig in figures or _YEAR_RE.match(fig):
+            continue
+        digits = re.sub(r"\D", "", fig)
+        claim_like = "." in fig or "%" in fig or len(digits) >= 3
+        if not digits or not claim_like:
+            continue
+        figures.append(fig)
+
+    matched: dict[int, list[str]] = {}
+    for fig in figures:
+        needle = _squash(fig)
+        for i, body in enumerate(squashed):
+            if needle in body:
+                matched.setdefault(i, []).append(fig)
+
+    # Most-supporting first; ties keep retrieval order (already relevance-ranked).
+    order = sorted(matched, key=lambda i: (-len(matched[i]), i))
+    return [(i + 1, matched[i]) for i in order[:MAX_INFERRED]]
+
+
 def used_markers(text: str, n_passages: int) -> list[int]:
     """The passage markers the answer actually cites, in order, de-duplicated.
 
@@ -71,13 +136,20 @@ def _format_context(chunks: list[RetrievedChunk]) -> str:
     return "\n\n".join(blocks)
 
 
-def _citations(chunks: list[RetrievedChunk], markers: list[int]) -> list[dict]:
-    """Build citation records for just the markers the answer used.
+def _citations(
+    chunks: list[RetrievedChunk],
+    markers: list[int],
+    *,
+    inferred: bool = False,
+    basis: dict[int, list[str]] | None = None,
+) -> list[dict]:
+    """Build citation records for the given 1-based markers into `chunks`.
 
-    `markers` are 1-based positions into `chunks` (already range-checked), so the
-    result is the passages actually cited rather than everything retrieved. The full
-    retrieved pool is still returned separately by /query as `chunks`.
+    `inferred` distinguishes a citation the MODEL declared from one this code
+    attributed after the fact, and `basis` records the figures that justified an
+    inferred one — a reader must be able to tell the two apart.
     """
+    basis = basis or {}
     return [
         {
             "marker": m,
@@ -86,6 +158,8 @@ def _citations(chunks: list[RetrievedChunk], markers: list[int]) -> list[dict]:
             "page_number": chunks[m - 1].page_number,
             "page_label": chunks[m - 1].page_label,
             "page_citation": _cite_page(chunks[m - 1]),
+            "inferred": inferred,
+            "matched_figures": basis.get(m, []),
         }
         for m in markers
     ]
@@ -183,12 +257,28 @@ def answer(question: str, chunks: list[RetrievedChunk]) -> Answer:
         model = "extractive-fallback"
 
     # Citations are derived from the answer text, so they describe what was actually
-    # used. A confident-looking answer that cites nothing is reported as uncited
-    # rather than being dressed up with the whole retrieved pool.
+    # used. A confident-looking answer that cites nothing is never dressed up with
+    # the whole retrieved pool: either the model declared markers, or we attribute it
+    # to the passages carrying its figures and label those as inferred.
     markers = used_markers(text, len(chunks))
+    if markers:
+        return Answer(
+            text=text,
+            citations=_citations(chunks, markers),
+            model=model,
+            uncited=False,
+        )
+
+    guesses = infer_citations(text, chunks)
     return Answer(
         text=text,
-        citations=_citations(chunks, markers),
+        citations=_citations(
+            chunks,
+            [m for m, _ in guesses],
+            inferred=True,
+            basis={m: figs for m, figs in guesses},
+        ),
         model=model,
-        uncited=bool(chunks) and not markers,
+        # The model itself cited nothing — true even when we managed to attribute it.
+        uncited=bool(chunks),
     )
