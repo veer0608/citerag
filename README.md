@@ -74,10 +74,16 @@ Health/config check: `curl -s localhost:8000/health`.
 
 | Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/ingest` | Ingest one PDF by server path (`{"path": "...", "title": "..."}`) |
+| `POST` | `/ingest` | Ingest one PDF from the corpus dir (`{"path": "berkshire_2023.pdf", "title": "..."}`) |
 | `POST` | `/query` | Retrieve top-k chunks + answer with citations |
-| `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set, store an `eval_runs` row |
+| `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set — read-only, writes nothing |
+| `POST` | `/eval/run` | Same, and record the result as an `eval_runs` row |
 | `GET`  | `/health` | Effective config (embedding model/dim, reranker, LLM backend) |
+
+`/ingest` only reads PDFs **inside the corpus directory** (`CORPUS_DIR`, default
+`backend/data/corpus`). Both sides of the path are resolved before comparison, so `..`
+traversal and symlinks can't escape it — the endpoint is unauthenticated, so without
+that check any caller could name an arbitrary server file and get its text back.
 
 `/query` responses carry a **`score_type`** (`cosine` ~0–1, `rrf` ~0–0.05, or
 `cross-encoder`, unbounded) naming the scale each `score` is on — the three stages
