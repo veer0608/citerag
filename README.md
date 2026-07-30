@@ -79,6 +79,11 @@ Health/config check: `curl -s localhost:8000/health`.
 | `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set, store an `eval_runs` row |
 | `GET`  | `/health` | Effective config (embedding model/dim, reranker, LLM backend) |
 
+`/query` responses carry a **`score_type`** (`cosine` ~0–1, `rrf` ~0–0.05, or
+`cross-encoder`, unbounded) naming the scale each `score` is on — the three stages
+produce numbers on incompatible ranges, so a bare score can't be compared across
+configs or rendered as a bar without it.
+
 ## How it works
 
 ```

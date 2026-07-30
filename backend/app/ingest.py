@@ -95,7 +95,7 @@ def serialize_tables(tables: list[list[list[str | None]]] | None) -> str:
     return "\n".join(lines)
 
 
-def parse_pdf(path: Path, *, extract_tables: bool = True) -> tuple[list[Page], int]:
+def parse_pdf(path: Path, *, extract_tables: bool = False) -> tuple[list[Page], int]:
     """Extract text per page. Returns (pages, empty_page_count).
 
     Empty pages are surfaced rather than silently dropped: a page with no
@@ -105,7 +105,9 @@ def parse_pdf(path: Path, *, extract_tables: bool = True) -> tuple[list[Page], i
     When `extract_tables` is set, each page's detected tables are serialized into
     row-level fact lines and appended to that page's text, so table rows survive
     chunking intact. A page counts as empty only when neither text nor tables yield
-    anything.
+    anything. It defaults to False to match `settings.table_extraction_enabled` —
+    that experiment measured *worse* (see the README), so a direct caller must opt
+    in deliberately rather than inherit the rejected behaviour.
 
     Each page's printed label (the number shown on the page itself) is read off the
     end of its text and carried separately, so citations can quote what a reader

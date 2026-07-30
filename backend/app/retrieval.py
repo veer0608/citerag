@@ -1,7 +1,12 @@
-"""Query -> embed -> sqlite-vec cosine search -> (optional) cross-encoder re-rank.
+"""Query -> candidate generation -> (optional) cross-encoder re-rank.
 
-The re-ranker is off by default in Phase 1. Phase 3 turns it on and the eval
-harness measures whether recall@k actually improves.
+Candidates come from dense vector search (sqlite-vec), optionally fused with
+lexical BM25 search (SQLite FTS5) by reciprocal rank fusion. Hybrid fusion and
+re-ranking are both ON by default — each was kept only because the eval harness
+showed recall@k improve.
+
+Every stage that writes a chunk's `score` also sets its `score_type`, because the
+three stages produce numbers on completely different scales (see SCORE_* below).
 """
 from __future__ import annotations
 
@@ -15,17 +20,27 @@ from app.config import settings
 from app.embeddings import embed_query
 
 
+# What a chunk's `score` actually is. The stages are on incompatible scales, so a
+# bare number is meaningless (and misleading) without this tag: cosine sits near
+# 0.7, an RRF score near 0.03, a cross-encoder score anywhere.
+SCORE_COSINE = "cosine"  # 0..1, higher = closer
+SCORE_BM25 = "bm25"  # SQLite bm25(), NEGATIVE, lower = better
+SCORE_RRF = "rrf"  # sum of 1/(k+rank), ~0..0.05, higher = better
+SCORE_CROSS_ENCODER = "cross-encoder"  # unbounded, higher = better
+
+
 @dataclass
 class RetrievedChunk:
     chunk_id: str
     document_id: str
     page_number: int | None  # physical 1-based index in the PDF
     content: str
-    score: float  # cosine similarity (1 = identical); re-rank overwrites this
+    score: float  # meaning depends on score_type — never compare across types
+    score_type: str = SCORE_COSINE
     page_label: str | None = None  # number printed on the page ("7", "K-83")
 
 
-def _to_chunks(hits, *, score) -> list[RetrievedChunk]:
+def _to_chunks(hits, *, score, score_type: str) -> list[RetrievedChunk]:
     return [
         RetrievedChunk(
             chunk_id=h.chunk_id,
@@ -34,6 +49,7 @@ def _to_chunks(hits, *, score) -> list[RetrievedChunk]:
             page_label=h.page_label,
             content=h.content,
             score=score(h),
+            score_type=score_type,
         )
         for h in hits
     ]
@@ -42,13 +58,13 @@ def _to_chunks(hits, *, score) -> list[RetrievedChunk]:
 def _vector_search(session: Session, query_embedding: list[float], limit: int) -> list[RetrievedChunk]:
     hits = vectorstore.knn(session, query_embedding, limit)
     # cosine distance -> similarity
-    return _to_chunks(hits, score=lambda h: 1.0 - h.distance)
+    return _to_chunks(hits, score=lambda h: 1.0 - h.distance, score_type=SCORE_COSINE)
 
 
 def _keyword_search(session: Session, query: str, limit: int) -> list[RetrievedChunk]:
     hits = vectorstore.keyword_search(session, query, limit)
     # BM25 score is kept only for reference; hybrid fusion uses rank position.
-    return _to_chunks(hits, score=lambda h: h.distance)
+    return _to_chunks(hits, score=lambda h: h.distance, score_type=SCORE_BM25)
 
 
 def _rrf_fuse(
@@ -56,7 +72,8 @@ def _rrf_fuse(
 ) -> list[RetrievedChunk]:
     """Reciprocal rank fusion: a chunk's fused score is sum(1 / (rrf_k + rank)) over
     every list it appears in (rank is 1-based). Rank-based, so the dense and lexical
-    scores never have to be on the same scale. The RRF score overwrites `score`."""
+    scores never have to be on the same scale. The RRF score replaces `score`, and
+    `score_type` is retagged to match."""
     fused: dict[str, RetrievedChunk] = {}
     scores: dict[str, float] = {}
     for ranked in ranked_lists:
@@ -66,6 +83,7 @@ def _rrf_fuse(
             fused.setdefault(key, chunk)
     for key, chunk in fused.items():
         chunk.score = scores[key]
+        chunk.score_type = SCORE_RRF
     ordered = sorted(fused.values(), key=lambda c: c.score, reverse=True)
     return ordered[:limit]
 
@@ -84,6 +102,7 @@ def _rerank(query: str, candidates: list[RetrievedChunk], top_k: int) -> list[Re
     scores = model.predict([(query, c.content) for c in candidates])
     for cand, score in zip(candidates, scores, strict=True):
         cand.score = float(score)
+        cand.score_type = SCORE_CROSS_ENCODER
     candidates.sort(key=lambda c: c.score, reverse=True)
     return candidates[:top_k]
 

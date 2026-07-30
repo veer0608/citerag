@@ -31,3 +31,7 @@ def test_query_returns_citations(session):
     # Every retrieved chunk has a citation with a stable id and (usually) a page.
     assert len(body["citations"]) == len(body["chunks"])
     assert all("chunk_id" in c for c in body["citations"])
+    # Scores are only meaningful alongside the scale they're on, and every chunk in
+    # one response comes from the same stage.
+    assert body["score_type"] in {"cosine", "rrf", "cross-encoder"}
+    assert all(c["score_type"] == body["score_type"] for c in body["chunks"])

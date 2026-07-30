@@ -34,6 +34,10 @@ class RetrievedChunkOut(BaseModel):
     page_number: int | None
     page_label: str | None
     score: float
+    # What `score` is on: "cosine" (0..1), "rrf" (~0..0.05) or "cross-encoder"
+    # (unbounded). Scores are only comparable within one score_type, so a client
+    # must not render a bare number or scale it to a bar without checking this.
+    score_type: str
     content: str
 
 
@@ -41,6 +45,8 @@ class QueryResponse(BaseModel):
     question: str
     answer: str
     model: str
+    # The score_type shared by every chunk below (null when nothing was retrieved).
+    score_type: str | None
     citations: list[Citation]
     chunks: list[RetrievedChunkOut]
 
@@ -55,6 +61,7 @@ def query(req: QueryRequest, session: Session = Depends(get_session)) -> QueryRe
         question=req.question,
         answer=result.text,
         model=result.model,
+        score_type=chunks[0].score_type if chunks else None,
         citations=[Citation(**c) for c in result.citations],
         chunks=[
             RetrievedChunkOut(
@@ -63,6 +70,7 @@ def query(req: QueryRequest, session: Session = Depends(get_session)) -> QueryRe
                 page_number=c.page_number,
                 page_label=c.page_label,
                 score=round(c.score, 4),
+                score_type=c.score_type,
                 content=c.content,
             )
             for c in chunks

@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.retrieval import RetrievedChunk, _rrf_fuse
+from app.retrieval import (
+    SCORE_COSINE,
+    SCORE_RRF,
+    RetrievedChunk,
+    _rrf_fuse,
+)
 from app.vectorstore import _fts_match_query
 
 
@@ -44,3 +49,14 @@ def test_rrf_fuse_orders_by_summed_reciprocal_rank():
 def test_rrf_fuse_respects_limit():
     dense = [_chunk(x) for x in "abcde"]
     assert len(_rrf_fuse([dense], rrf_k=60, limit=3)) == 3
+
+
+def test_rrf_fuse_retags_score_type():
+    # An RRF score (~0.03) is on a different scale from the cosine score it
+    # replaces (~0.7), so the tag must change with the number — otherwise a client
+    # renders one as the other.
+    dense = [_chunk("a")]
+    assert dense[0].score_type == SCORE_COSINE
+    fused = _rrf_fuse([dense], rrf_k=60, limit=5)
+    assert fused[0].score_type == SCORE_RRF
+    assert fused[0].score < 0.1  # RRF range, nothing like a cosine similarity
