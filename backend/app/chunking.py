@@ -32,6 +32,10 @@ class Chunk:
     page_number: int | None
     content: str
     token_count: int
+    # The page number PRINTED on the page ("7", "K-83"), when one was found. The
+    # physical index above is what the PDF viewer shows; this is what a reader — or
+    # anyone checking a citation against the paper report — actually sees.
+    page_label: str | None = None
 
 
 @dataclass
@@ -40,6 +44,7 @@ class Page:
 
     page_number: int
     text: str
+    page_label: str | None = None
 
 
 def fixed_size_chunks(
@@ -61,10 +66,12 @@ def fixed_size_chunks(
     # Build a flat token stream, remembering which page each token came from.
     tokens: list[int] = []
     token_pages: list[int] = []
+    token_labels: list[str | None] = []
     for page in pages:
         page_tokens = _encoder().encode(page.text)
         tokens.extend(page_tokens)
         token_pages.extend([page.page_number] * len(page_tokens))
+        token_labels.extend([page.page_label] * len(page_tokens))
 
     if not tokens:
         return []
@@ -85,6 +92,7 @@ def fixed_size_chunks(
                 page_number=token_pages[start],
                 content=content,
                 token_count=len(window),
+                page_label=token_labels[start],
             )
         )
         index += 1
@@ -143,6 +151,7 @@ def structure_aware_chunks(
                         page_number=page.page_number,
                         content=content,
                         token_count=len(enc.encode(content)),
+                        page_label=page.page_label,
                     )
                 )
                 index += 1

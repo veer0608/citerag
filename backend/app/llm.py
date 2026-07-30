@@ -26,11 +26,21 @@ class Answer:
     model: str
 
 
+def _cite_page(chunk: RetrievedChunk) -> str:
+    """How a page is described to a human: the printed label when we have one, with
+    the physical PDF index alongside since that's what a viewer's page box wants."""
+    if chunk.page_label:
+        return f"page {chunk.page_label} (PDF page {chunk.page_number})"
+    if chunk.page_number is not None:
+        return f"PDF page {chunk.page_number}"
+    return ""
+
+
 def _format_context(chunks: list[RetrievedChunk]) -> str:
     blocks = []
     for i, c in enumerate(chunks, start=1):
-        page = f" (page {c.page_number})" if c.page_number is not None else ""
-        blocks.append(f"[{i}]{page} {c.content}")
+        page = _cite_page(c)
+        blocks.append(f"[{i}]{f' ({page})' if page else ''} {c.content}")
     return "\n\n".join(blocks)
 
 
@@ -41,6 +51,8 @@ def _citations(chunks: list[RetrievedChunk]) -> list[dict]:
             "chunk_id": str(c.chunk_id),
             "document_id": str(c.document_id),
             "page_number": c.page_number,
+            "page_label": c.page_label,
+            "page_citation": _cite_page(c),
         }
         for i, c in enumerate(chunks, start=1)
     ]

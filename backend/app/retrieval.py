@@ -19,9 +19,10 @@ from app.embeddings import embed_query
 class RetrievedChunk:
     chunk_id: str
     document_id: str
-    page_number: int | None
+    page_number: int | None  # physical 1-based index in the PDF
     content: str
     score: float  # cosine similarity (1 = identical); re-rank overwrites this
+    page_label: str | None = None  # number printed on the page ("7", "K-83")
 
 
 def _to_chunks(hits, *, score) -> list[RetrievedChunk]:
@@ -30,6 +31,7 @@ def _to_chunks(hits, *, score) -> list[RetrievedChunk]:
             chunk_id=h.chunk_id,
             document_id=h.document_id,
             page_number=h.page_number,
+            page_label=h.page_label,
             content=h.content,
             score=score(h),
         )

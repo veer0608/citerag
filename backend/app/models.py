@@ -43,7 +43,10 @@ class Chunk(Base):
         String(36), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 1-based PHYSICAL page index within the PDF.
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The number PRINTED on that page ("7", "K-83"); null when the page prints none.
+    page_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
 

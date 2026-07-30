@@ -6,6 +6,7 @@ embeddings go to the sqlite-vec `vec_chunks` table, joined by rowid.
 """
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,36 @@ class IngestResult:
     n_empty_pages: int  # pages that yielded no text (likely scanned -> would need OCR)
 
 
+# A printed page label sitting alone on the final line of a page: either a plain
+# number from the shareholder letter ("7") or the 10-K's prefixed form ("K-83").
+# Anchored and length-capped so a stray figure in the text isn't mistaken for one.
+_PAGE_LABEL_RE = re.compile(r"^([A-Z]{1,2}-)?\d{1,3}$")
+
+
+def extract_page_label(text: str) -> tuple[str, str | None]:
+    """Split a trailing printed page label off a page's text.
+
+    Returns (text_without_label, label_or_None). These reports print the page
+    number as the last line of the page, and it uses two different schemes — plain
+    integers in the shareholder letter, "K-" prefixed in the 10-K — so it can't be
+    derived from the physical index by any fixed offset. It has to be read off the
+    page.
+
+    The label is REMOVED from the text it labels: left in, it would be indexed as
+    content and could match a query's own numbers.
+    """
+    lines = text.splitlines()
+    # Walk back over trailing blank lines to find the last non-empty one.
+    for i in range(len(lines) - 1, -1, -1):
+        stripped = lines[i].strip()
+        if not stripped:
+            continue
+        if _PAGE_LABEL_RE.match(stripped):
+            return "\n".join(lines[:i] + lines[i + 1 :]), stripped
+        break
+    return text, None
+
+
 def serialize_tables(tables: list[list[list[str | None]]] | None) -> str:
     """Flatten pdfplumber tables into one compact fact per row.
 
@@ -75,19 +106,25 @@ def parse_pdf(path: Path, *, extract_tables: bool = True) -> tuple[list[Page], i
     row-level fact lines and appended to that page's text, so table rows survive
     chunking intact. A page counts as empty only when neither text nor tables yield
     anything.
+
+    Each page's printed label (the number shown on the page itself) is read off the
+    end of its text and carried separately, so citations can quote what a reader
+    sees rather than only the physical PDF index.
     """
     pages: list[Page] = []
     empty = 0
     with pdfplumber.open(str(path)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
             text = page.extract_text() or ""
+            # Read the label off the raw page text, before tables are appended.
+            text, label = extract_page_label(text)
             if extract_tables:
                 table_text = serialize_tables(page.extract_tables())
                 if table_text:
                     text = (text + "\n" + table_text).strip() if text.strip() else table_text
             if not text.strip():
                 empty += 1
-            pages.append(Page(page_number=i, text=text))
+            pages.append(Page(page_number=i, text=text, page_label=label))
     return pages, empty
 
 
@@ -147,6 +184,7 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
                 document_id=document.id,
                 chunk_index=chunk.chunk_index,
                 page_number=chunk.page_number,
+                page_label=chunk.page_label,
                 content=chunk.content,
                 token_count=chunk.token_count,
             )

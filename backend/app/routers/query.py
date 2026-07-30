@@ -23,13 +23,16 @@ class Citation(BaseModel):
     marker: int
     chunk_id: str
     document_id: str
-    page_number: int | None
+    page_number: int | None  # physical 1-based index in the PDF
+    page_label: str | None  # number printed on the page ("7", "K-83")
+    page_citation: str  # human-facing form, e.g. "page K-83 (PDF page 98)"
 
 
 class RetrievedChunkOut(BaseModel):
     chunk_id: str
     document_id: str
     page_number: int | None
+    page_label: str | None
     score: float
     content: str
 
@@ -58,6 +61,7 @@ def query(req: QueryRequest, session: Session = Depends(get_session)) -> QueryRe
                 chunk_id=str(c.chunk_id),
                 document_id=str(c.document_id),
                 page_number=c.page_number,
+                page_label=c.page_label,
                 score=round(c.score, 4),
                 content=c.content,
             )

@@ -124,12 +124,14 @@
   }
 
   function render(d) {
+    // Prefer the page number printed on the page; fall back to the physical index.
+    const pageOf = c => c.page_label ? "p" + c.page_label : (c.page_number != null ? "PDF p" + c.page_number : "p?");
     const cites = (d.citations || [])
-      .map(c => '<span class="cite">[' + c.marker + "] p" + (c.page_number ?? "?") + "</span>")
+      .map(c => '<span class="cite">[' + c.marker + "] " + esc(pageOf(c)) + "</span>")
       .join("");
     const sources = (d.chunks || []).map((c, i) => {
       const text = c.content.replace(/\s+/g, " ").slice(0, 320);
-      return '<div class="src"><div class="srcmeta">[' + (i + 1) + "] page " + (c.page_number ?? "?") +
+      return '<div class="src"><div class="srcmeta">[' + (i + 1) + "] " + esc(pageOf(c)) +
         " · score " + Number(c.score).toFixed(3) + '</div><div class="srctext">' + esc(text) + "…</div></div>";
     }).join("");
     out.innerHTML =

@@ -137,10 +137,9 @@ when a retrieved chunk *actually contains the answer* (whitespace-insensitive su
 of the expected answer), not merely a chunk from the expected page. The eval also reports
 a looser `page_recall@5` for continuity. Tightening this in `run_eval.py` left the strict
 number unchanged (0.467 / 0.500) — confirming the headline was already answer-bearing —
-but the low `page_recall@5` (0.167) surfaced a separate bug: the golden set's
-`expected_page_numbers` are the page labels a human reads, while ingest stores the 1-based
-*physical* PDF index, and the two are offset by the reports' front matter. See the gap note
-below.
+but the low `page_recall@5` (0.167) prompted a look at page numbering, which turned up a
+real citation defect: ingest stored only the 1-based *physical* PDF index, never the number
+printed on the page. Printed labels are now extracted at ingest; see the citations note below.
 
 **How each change was chosen (not guessed):** the misses were diagnosed by checking
 whether the correct chunk was even in the candidate pool, and if so, where it ranked:
@@ -167,14 +166,24 @@ page text on table-heavy pages instead of appending, to avoid the duplication) a
 query rewriting (restate the question in the document's vocabulary before embedding)
 are the remaining candidates — neither done yet.
 
-**Known bug — citation page numbers are physical, not printed.** Ingest stores each
-chunk's 1-based *physical* PDF page index; the number printed on the page (and used by
-the golden set) is offset by the reports' cover/front matter, and the offset isn't even
-constant across the three years. So a returned citation of "page 6" may not match the "6"
-a reader sees on the page. This is why `page_recall@5` sits at 0.167 while answer-bearing
-recall is 0.467 — retrieval finds the right content, but the page label it cites is off.
-Fix options: label citations explicitly as "PDF page N", or extract printed labels at
-ingest and store both.
+**Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
+label off the page and stores it next to the 1-based physical PDF index, so a citation
+reads `page K-83 (PDF page 98)` — the first half matches the paper report, the second
+half is what a PDF viewer's page box wants.
+
+This mattered more than a fixed offset would suggest: these reports use **two different
+numbering schemes** — plain integers in the shareholder letter, a `K-` prefix in the 10-K
+— so the printed number can't be derived from the physical index by any arithmetic. It
+has to be read off the page. 98% of chunks get a label; the rest (covers, section
+dividers, back matter) legitimately print none and fall back to the physical index.
+
+**What this did *not* fix:** the low `page_recall@5`. The obvious theory was that the
+golden set's `expected_page_numbers` were printed labels — so I measured it, and they
+aren't: they track the *physical* index (agreeing on 14/30 questions vs 6/30 for labels),
+and they're often off by one (an answer on physical 99 recorded as 98), consistent with
+being read by eye off a PDF viewer. So page matching in the eval stays on the physical
+index, and `page_recall` remains only an indicative signal — which is exactly why the
+headline metric is answer-bearing recall instead.
 
 ## Claude Code skills
 

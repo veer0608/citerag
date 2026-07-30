@@ -26,7 +26,8 @@ def serialize(vector: list[float]) -> bytes:
 class VecHit:
     chunk_id: str
     document_id: str
-    page_number: int | None
+    page_number: int | None  # physical 1-based index in the PDF
+    page_label: str | None  # number printed on the page ("7", "K-83")
     content: str
     distance: float  # cosine distance: 0 = identical, 2 = opposite
 
@@ -105,7 +106,7 @@ def keyword_search(session: Session, query: str, k: int) -> list[VecHit]:
         return []
     sql = text(
         """
-        SELECT c.id, c.document_id, c.page_number, c.content, f.score
+        SELECT c.id, c.document_id, c.page_number, c.page_label, c.content, f.score
         FROM (
             SELECT rowid, bm25(fts_chunks) AS score
             FROM fts_chunks
@@ -123,6 +124,7 @@ def keyword_search(session: Session, query: str, k: int) -> list[VecHit]:
             chunk_id=row.id,
             document_id=row.document_id,
             page_number=row.page_number,
+            page_label=row.page_label,
             content=row.content,
             distance=float(row.score),
         )
@@ -134,7 +136,7 @@ def knn(session: Session, query_embedding: list[float], k: int) -> list[VecHit]:
     """Return the k nearest chunks to the query embedding, closest first."""
     sql = text(
         """
-        SELECT c.id, c.document_id, c.page_number, c.content, v.distance
+        SELECT c.id, c.document_id, c.page_number, c.page_label, c.content, v.distance
         FROM (
             SELECT rowid, distance
             FROM vec_chunks
@@ -151,6 +153,7 @@ def knn(session: Session, query_embedding: list[float], k: int) -> list[VecHit]:
             chunk_id=row.id,
             document_id=row.document_id,
             page_number=row.page_number,
+            page_label=row.page_label,
             content=row.content,
             distance=float(row.distance),
         )
