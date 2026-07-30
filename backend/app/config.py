@@ -15,6 +15,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB_PATH = _BACKEND_DIR / "data" / "citerag.db"
 _DEFAULT_DATABASE_URL = f"sqlite:///{_DEFAULT_DB_PATH.as_posix()}"
+# The only directory /ingest will read PDFs from. Absolute, so the confinement check
+# doesn't depend on the process working directory.
+_DEFAULT_CORPUS_DIR = _BACKEND_DIR / "data" / "corpus"
 
 # Known embedding models -> their vector dimension. The DB column dimension must
 # match, which is why the Alembic migration reads EMBEDDING_DIM from here.
@@ -37,6 +40,9 @@ class Settings(BaseSettings):
     )
 
     database_url: str = _DEFAULT_DATABASE_URL
+
+    # Where the corpus PDFs live, and the boundary /ingest refuses to read outside of.
+    corpus_dir: Path = _DEFAULT_CORPUS_DIR
 
     # Embeddings
     embedding_model: str = "bge-small-en-v1.5"

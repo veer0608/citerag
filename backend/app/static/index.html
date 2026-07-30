@@ -53,11 +53,20 @@
     font-size: 12.5px; font-weight: 600; background: var(--chip);
     border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px;
   }
+  /* Inferred citations are reconstructed, not declared — dashed to look provisional. */
+  .cite.inferred { font-weight: 500; border-style: dashed; background: transparent; }
   .src { border-top: 1px solid var(--line); padding: 12px 0 2px; }
   .src:first-of-type { border-top: 0; padding-top: 0; }
   .srcmeta { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
   .srctext { font-size: 13px; color: var(--ink); }
   .model { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .warn {
+    margin-top: 14px; padding: 9px 11px; border-radius: 7px; font-size: 12.5px;
+    line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
+  }
+  @media (prefers-color-scheme: dark) {
+    .warn { color: #fcd34d; background: #2a2113; border-color: #5c4708; }
+  }
   .spinner {
     display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line);
     border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
@@ -124,17 +133,37 @@
   }
 
   function render(d) {
+    // Prefer the page number printed on the page; fall back to the physical index.
+    const pageOf = c => c.page_label ? "p" + c.page_label : (c.page_number != null ? "PDF p" + c.page_number : "p?");
+    // An inferred citation is weaker evidence than one the model declared, so it
+    // reads differently and names the figures that justified it.
     const cites = (d.citations || [])
-      .map(c => '<span class="cite">[' + c.marker + "] p" + (c.page_number ?? "?") + "</span>")
+      .map(c => {
+        const why = (c.matched_figures || []).join(", ");
+        const cls = c.inferred ? "cite inferred" : "cite";
+        const tip = c.inferred ? ' title="inferred by matching: ' + esc(why) + '"' : "";
+        return '<span class="' + cls + '"' + tip + ">[" + c.marker + "] " + esc(pageOf(c)) +
+          (c.inferred && why ? " · " + esc(why) : "") + "</span>";
+      })
       .join("");
     const sources = (d.chunks || []).map((c, i) => {
       const text = c.content.replace(/\s+/g, " ").slice(0, 320);
-      return '<div class="src"><div class="srcmeta">[' + (i + 1) + "] page " + (c.page_number ?? "?") +
-        " · score " + Number(c.score).toFixed(3) + '</div><div class="srctext">' + esc(text) + "…</div></div>";
+      // Name the scale: cosine (~0.7), rrf (~0.03) and cross-encoder scores are on
+      // completely different ranges, so a bare number invites false comparisons.
+      const score = esc(c.score_type || "score") + " " + Number(c.score).toFixed(3);
+      return '<div class="src"><div class="srcmeta">[' + (i + 1) + "] " + esc(pageOf(c)) +
+        " · " + score + '</div><div class="srctext">' + esc(text) + "…</div></div>";
     }).join("");
+    // Citations are the passages the answer actually cited. If it cited none, say so
+    // rather than showing the retrieved pool as though it backed the answer up.
+    const note = !d.uncited ? ""
+      : cites
+        ? '<div class="warn">⚠ The model cited no passage. These citations were <b>inferred</b> by matching figures in the answer against the retrieved passages — weaker evidence than a citation the model declared.</div>'
+        : '<div class="warn">⚠ This answer cites no passage, and none of its figures could be matched to the retrieved passages. Treat it as unverified.</div>';
+    const cited = (cites ? '<div class="cites">' + cites + "</div>" : "") + note;
     out.innerHTML =
       '<div class="card"><p class="label">Answer</p><div class="answer">' + esc(d.answer || "") + "</div>" +
-      (cites ? '<div class="cites">' + cites + "</div>" : "") +
+      cited +
       '<div class="model">model: ' + esc(d.model || "") + "</div></div>" +
       '<div class="card"><p class="label">Retrieved sources</p>' + sources + "</div>";
   }

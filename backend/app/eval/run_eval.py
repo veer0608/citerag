@@ -52,8 +52,20 @@ class GoldenQuestion:
             needle = _squash(self.expected_answer_substring)
             return bool(needle and needle in _squash(chunk.content))
         if self.expected_page_numbers:
-            return chunk.page_number in self.expected_page_numbers
+            return self._page_matches(chunk)
         return False
+
+    def _page_matches(self, chunk: RetrievedChunk) -> bool:
+        """Compare against the PHYSICAL PDF page index.
+
+        Measured against the corpus, the golden set's expected_page_numbers track
+        the physical index (agreeing on 14/30 questions) rather than the printed
+        label (6/30) — they were recorded by eye from a PDF viewer. They're also
+        often off by one (an answer on physical 99 recorded as 98), which is why
+        page_recall is only an indicative signal and recall@k is answer-bearing
+        instead. Do NOT switch this to page_label: that was tried and is wrong.
+        """
+        return chunk.page_number in set(self.expected_page_numbers)
 
     def matches_page(self, chunk: RetrievedChunk) -> bool:
         """Page-level relevance: chunk came from an expected page.
@@ -64,7 +76,7 @@ class GoldenQuestion:
         question has no page ground truth.
         """
         if self.expected_page_numbers:
-            return chunk.page_number in self.expected_page_numbers
+            return self._page_matches(chunk)
         return self.matches_strict(chunk)
 
 

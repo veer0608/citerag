@@ -22,10 +22,13 @@ import httpx
 # Make `app` importable when run as `python scripts/seed_corpus.py` from backend/.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.config import settings  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.ingest import ingest_pdf  # noqa: E402
 
-CORPUS_DIR = Path(__file__).resolve().parents[1] / "data" / "corpus"
+# Same directory /ingest is confined to, so the script and the API never disagree
+# about where the corpus lives.
+CORPUS_DIR = Path(settings.corpus_dir)
 
 DEFAULT_CORPUS: dict[str, str] = {
     "berkshire_2023.pdf": "https://www.berkshirehathaway.com/2023ar/2023ar.pdf",

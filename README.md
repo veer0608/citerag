@@ -74,10 +74,46 @@ Health/config check: `curl -s localhost:8000/health`.
 
 | Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/ingest` | Ingest one PDF by server path (`{"path": "...", "title": "..."}`) |
+| `POST` | `/ingest` | Ingest one PDF from the corpus dir (`{"path": "berkshire_2023.pdf", "title": "..."}`) |
 | `POST` | `/query` | Retrieve top-k chunks + answer with citations |
-| `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set, store an `eval_runs` row |
+| `GET`  | `/eval/run` | Run recall@k / precision@k / MRR over the golden set — read-only, writes nothing |
+| `POST` | `/eval/run` | Same, and record the result as an `eval_runs` row |
 | `GET`  | `/health` | Effective config (embedding model/dim, reranker, LLM backend) |
+
+`/ingest` only reads PDFs **inside the corpus directory** (`CORPUS_DIR`, default
+`backend/data/corpus`). Both sides of the path are resolved before comparison, so `..`
+traversal and symlinks can't escape it — the endpoint is unauthenticated, so without
+that check any caller could name an arbitrary server file and get its text back.
+
+`/query` responses carry a **`score_type`** (`cosine` ~0–1, `rrf` ~0–0.05, or
+`cross-encoder`, unbounded) naming the scale each `score` is on — the three stages
+produce numbers on incompatible ranges, so a bare score can't be compared across
+configs or rendered as a bar without it.
+
+**`citations` are the passages the answer actually cited**, parsed from the `[n]`
+markers in the answer text — a *subset* of `chunks`, which is the full retrieved pool
+the model was shown. Markers outside that range are dropped (a model inventing `[9]`
+against 5 passages has cited nothing real). When an answer asserts something and cites
+nothing, the response sets **`uncited: true`** and the UI labels it unverified rather
+than attaching the retrieved pool as if it were support.
+
+**When the model cites nothing, citations are reconstructed rather than abandoned.**
+The default local model (`Qwen2.5-0.5B-Instruct`) does *not* follow the marker
+instruction — it answers correctly but silently. Rather than leave those answers with no
+provenance, the answer's distinctive figures are matched back against the retrieved
+passages, and the passages containing them are returned with **`inferred: true`** plus
+the `matched_figures` that justified each one. The UI renders these dashed and labelled,
+because reconstructed provenance is weaker evidence than a citation the model declared.
+
+Guards keep inference from manufacturing support: a figure must look like a claim
+(decimal, `%`, or 3+ digits — so date components like "January **31**" are skipped),
+bare years are ignored as boilerplate, and at most 3 passages are attributed so an
+echoed figure can't quietly re-attach the whole retrieved pool.
+
+Worked example — the local model answers *"an additional 41.4% interest in Pilot Travel
+Centers on January 31, 2023"* with no markers, and inference attributes it to the three
+passages that actually contain "41.4%" (verified: they read *"an agreement to acquire an
+additional 41.4% of Pilot"*), on printed pages `K-58`, `K-85` and `K-112`.
 
 ## How it works
 
@@ -137,10 +173,9 @@ when a retrieved chunk *actually contains the answer* (whitespace-insensitive su
 of the expected answer), not merely a chunk from the expected page. The eval also reports
 a looser `page_recall@5` for continuity. Tightening this in `run_eval.py` left the strict
 number unchanged (0.467 / 0.500) — confirming the headline was already answer-bearing —
-but the low `page_recall@5` (0.167) surfaced a separate bug: the golden set's
-`expected_page_numbers` are the page labels a human reads, while ingest stores the 1-based
-*physical* PDF index, and the two are offset by the reports' front matter. See the gap note
-below.
+but the low `page_recall@5` (0.167) prompted a look at page numbering, which turned up a
+real citation defect: ingest stored only the 1-based *physical* PDF index, never the number
+printed on the page. Printed labels are now extracted at ingest; see the citations note below.
 
 **How each change was chosen (not guessed):** the misses were diagnosed by checking
 whether the correct chunk was even in the candidate pool, and if so, where it ranked:
@@ -167,14 +202,24 @@ page text on table-heavy pages instead of appending, to avoid the duplication) a
 query rewriting (restate the question in the document's vocabulary before embedding)
 are the remaining candidates — neither done yet.
 
-**Known bug — citation page numbers are physical, not printed.** Ingest stores each
-chunk's 1-based *physical* PDF page index; the number printed on the page (and used by
-the golden set) is offset by the reports' cover/front matter, and the offset isn't even
-constant across the three years. So a returned citation of "page 6" may not match the "6"
-a reader sees on the page. This is why `page_recall@5` sits at 0.167 while answer-bearing
-recall is 0.467 — retrieval finds the right content, but the page label it cites is off.
-Fix options: label citations explicitly as "PDF page N", or extract printed labels at
-ingest and store both.
+**Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
+label off the page and stores it next to the 1-based physical PDF index, so a citation
+reads `page K-83 (PDF page 98)` — the first half matches the paper report, the second
+half is what a PDF viewer's page box wants.
+
+This mattered more than a fixed offset would suggest: these reports use **two different
+numbering schemes** — plain integers in the shareholder letter, a `K-` prefix in the 10-K
+— so the printed number can't be derived from the physical index by any arithmetic. It
+has to be read off the page. 98% of chunks get a label; the rest (covers, section
+dividers, back matter) legitimately print none and fall back to the physical index.
+
+**What this did *not* fix:** the low `page_recall@5`. The obvious theory was that the
+golden set's `expected_page_numbers` were printed labels — so I measured it, and they
+aren't: they track the *physical* index (agreeing on 14/30 questions vs 6/30 for labels),
+and they're often off by one (an answer on physical 99 recorded as 98), consistent with
+being read by eye off a PDF viewer. So page matching in the eval stays on the physical
+index, and `page_recall` remains only an indicative signal — which is exactly why the
+headline metric is answer-bearing recall instead.
 
 ## Claude Code skills
 
