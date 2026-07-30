@@ -59,6 +59,16 @@ class Settings(BaseSettings):
     rerank_candidates: int = 20
     reranker_model: str = "BAAI/bge-reranker-base"
 
+    # Hybrid retrieval (Phase 5 exp3): fuse dense (sqlite-vec) with lexical
+    # (SQLite FTS5 / BM25) via reciprocal rank fusion, then hand the fused pool to
+    # the re-ranker. Dense search blurs exact tokens ("$3.3 billion", "BNSF",
+    # "2021") that a keyword index nails, so the two are complementary. Each
+    # retriever contributes its top `hybrid_candidates`; rrf_k is the standard RRF
+    # damping constant.
+    hybrid_enabled: bool = True
+    hybrid_candidates: int = 20
+    rrf_k: int = 60
+
     # LLM answer step. Priority: OpenAI key -> Anthropic key -> local model ->
     # extractive fallback. Retrieval + eval never depend on any of this.
     openai_api_key: str | None = None

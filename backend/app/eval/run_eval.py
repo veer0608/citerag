@@ -34,24 +34,38 @@ class GoldenQuestion:
     expected_answer_substring: str | None = None
     expected_chunk_ids: list[str] = field(default_factory=list)
 
-    def matches(self, chunk: RetrievedChunk) -> bool:
-        """Does this retrieved chunk satisfy the question's ground truth?"""
+    def matches_strict(self, chunk: RetrievedChunk) -> bool:
+        """Answer-bearing relevance: the chunk actually contains the answer.
+
+        This is the honest signal — "did we retrieve the chunk that answers the
+        question", not merely "a chunk from the right page". An explicit
+        expected_chunk_id counts too. Only when a question has NO answer-level
+        ground truth (no substring, no chunk ids) do we fall back to the page.
+        """
         if self.expected_chunk_ids and str(chunk.chunk_id) in self.expected_chunk_ids:
-            return True
-        if (
-            self.expected_page_numbers
-            and chunk.page_number in self.expected_page_numbers
-        ):
             return True
         if self.expected_answer_substring:
             # Whitespace-insensitive: PDF extraction spacing is noise (pdfplumber
             # yields "164 billion" on one page and "164billion" on another), and a
-            # re-chunk in Phase 3 shifts whitespace again. Comparing with all
-            # whitespace stripped keeps the golden set robust to both.
+            # re-chunk shifts whitespace again. Comparing with all whitespace
+            # stripped keeps the golden set robust to both.
             needle = _squash(self.expected_answer_substring)
-            if needle and needle in _squash(chunk.content):
-                return True
+            return bool(needle and needle in _squash(chunk.content))
+        if self.expected_page_numbers:
+            return chunk.page_number in self.expected_page_numbers
         return False
+
+    def matches_page(self, chunk: RetrievedChunk) -> bool:
+        """Page-level relevance: chunk came from an expected page.
+
+        Looser than matches_strict — any chunk on the page counts, even one that
+        doesn't contain the answer. Kept only so we can report the historical
+        page-level number alongside the strict one. Falls back to strict when a
+        question has no page ground truth.
+        """
+        if self.expected_page_numbers:
+            return chunk.page_number in self.expected_page_numbers
+        return self.matches_strict(chunk)
 
 
 def load_golden_set(path: Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
@@ -62,28 +76,33 @@ def load_golden_set(path: Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
 @dataclass
 class QuestionResult:
     question: str
-    hit: bool
-    rank: int | None  # 1-based rank of the first matching chunk, else None
-    n_relevant_in_topk: int
+    hit: bool  # strict / answer-bearing: an answer-containing chunk was in top-k
+    rank: int | None  # 1-based rank of the first answer-bearing chunk, else None
+    n_relevant_in_topk: int  # count of answer-bearing chunks in top-k
+    page_hit: bool  # looser: any chunk from an expected page was in top-k
     retrieved_chunk_ids: list[str]
 
 
 def _evaluate_question(
-    session: Session, gq: GoldenQuestion, top_k: int, rerank: bool
+    session: Session, gq: GoldenQuestion, top_k: int, rerank: bool, hybrid: bool
 ) -> QuestionResult:
-    chunks = retrieve(session, gq.question, top_k=top_k, rerank=rerank)
+    chunks = retrieve(session, gq.question, top_k=top_k, rerank=rerank, hybrid=hybrid)
     rank: int | None = None
     n_relevant = 0
+    page_hit = False
     for i, chunk in enumerate(chunks, start=1):
-        if gq.matches(chunk):
+        if gq.matches_strict(chunk):
             n_relevant += 1
             if rank is None:
                 rank = i
+        if gq.matches_page(chunk):
+            page_hit = True
     return QuestionResult(
         question=gq.question,
         hit=rank is not None,
         rank=rank,
         n_relevant_in_topk=n_relevant,
+        page_hit=page_hit,
         retrieved_chunk_ids=[str(c.chunk_id) for c in chunks],
     )
 
@@ -93,10 +112,12 @@ def run_eval(
     *,
     top_k: int | None = None,
     rerank: bool | None = None,
+    hybrid: bool | None = None,
     persist: bool = True,
 ) -> dict:
     top_k = settings.retrieval_top_k if top_k is None else top_k
     rerank = settings.rerank_enabled if rerank is None else rerank
+    hybrid = settings.hybrid_enabled if hybrid is None else hybrid
 
     golden = load_golden_set()
     config = {
@@ -104,6 +125,9 @@ def run_eval(
         "rerank_enabled": rerank,
         "rerank_candidates": settings.rerank_candidates if rerank else None,
         "reranker_model": settings.reranker_model if rerank else None,
+        "hybrid_enabled": hybrid,
+        "hybrid_candidates": settings.hybrid_candidates if hybrid else None,
+        "rrf_k": settings.rrf_k if hybrid else None,
         "embedding_model": settings.embedding_model,
         "chunk_strategy": settings.chunk_strategy,
         "chunk_tokens": settings.chunk_tokens,
@@ -116,6 +140,7 @@ def run_eval(
         metrics = {
             "n_questions": 0,
             "recall_at_k": None,
+            "page_recall_at_k": None,
             "precision_at_k": None,
             "mrr": None,
             "note": "golden_set.json has no questions yet (Phase 2 not started).",
@@ -125,21 +150,27 @@ def run_eval(
             _persist(session, config, metrics)
         return {"config": config, "metrics": metrics}
 
-    results = [_evaluate_question(session, gq, top_k, rerank) for gq in golden]
+    results = [_evaluate_question(session, gq, top_k, rerank, hybrid) for gq in golden]
     n = len(results)
+    # recall_at_k / precision_at_k / mrr are all ANSWER-BEARING (strict): they count
+    # only chunks that actually contain the answer. page_recall_at_k is the looser,
+    # historical page-level number, reported alongside for continuity.
     recall = sum(1 for r in results if r.hit) / n
+    page_recall = sum(1 for r in results if r.page_hit) / n
     precision = sum(r.n_relevant_in_topk for r in results) / (n * top_k)
     mrr = sum((1.0 / r.rank) if r.rank else 0.0 for r in results) / n
 
     metrics = {
         "n_questions": n,
         "recall_at_k": round(recall, 4),
+        "page_recall_at_k": round(page_recall, 4),
         "precision_at_k": round(precision, 4),
         "mrr": round(mrr, 4),
         "per_question": [
             {
                 "question": r.question,
                 "hit": r.hit,
+                "page_hit": r.page_hit,
                 "rank": r.rank,
                 "n_relevant_in_topk": r.n_relevant_in_topk,
             }

@@ -56,6 +56,7 @@ def health() -> dict:
         "status": "ok",
         "embedding_model": settings.embedding_model,
         "embedding_dim": settings.embedding_dim,
+        "hybrid_enabled": settings.hybrid_enabled,
         "rerank_enabled": settings.rerank_enabled,
         "llm": (
             "openai"

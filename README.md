@@ -108,6 +108,10 @@ question ──embed_query──▶ cosine top-k ──(optional) cross-encoder 
   because the number moved. Query rewriting is the next lever but needs an LLM key.
 - **Phase 4 — the defensible layer.** ✅ citations with page numbers, live
   `/eval/run`, and CI that ingests the corpus and asserts the recall gate.
+- **Phase 5 — hybrid retrieval.** ✅ dense (sqlite-vec) + lexical (SQLite FTS5/BM25)
+  fused with reciprocal rank fusion, then re-ranked. recall@5 0.500 → 0.733 — the
+  biggest single lever, and free of any new model or service. Query rewriting is the
+  next lever but needs an LLM key.
 
 ## Results (before/after)
 
@@ -118,27 +122,55 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 |---|---|---|---|---|
 | Naive fixed-size chunking (500/50) | 0.367 | 0.10 | 0.188 | baseline — 11/30. |
 | + structure-aware chunking (page-bounded, 220-tok, line-preserving) | 0.467 | 0.147 | 0.302 | +0.100. 14/30. Diagnosis: naive windows spanned pages and diluted specific facts; smaller page-bounded chunks concentrate them. |
-| + re-ranker (bge-reranker-base, top-20 → top-5) | **0.500** | 0.173 | **0.365** | +0.033 recall, but MRR 0.302 → 0.365 — the right chunk, when found, ranks higher. 15/30. |
+| + re-ranker (bge-reranker-base, top-20 → top-5) | 0.500 | 0.173 | 0.365 | +0.033 recall, but MRR 0.302 → 0.365 — the right chunk, when found, ranks higher. 15/30. |
+| + hybrid retrieval (dense + BM25/FTS5, RRF-fused) | 0.633 | 0.193 | 0.458 | +0.133 (measured with rerank off, to isolate the fusion). 19/30. Diagnosis: the corpus is full of exact tokens — dollar amounts, tickers, years — that dense embeddings blur; a keyword index nails them. |
+| + hybrid **and** re-ranker (default config) | **0.733** | **0.220** | **0.532** | +0.100 on top of hybrid. 22/30. Re-ranker orders the richer fused pool better than it did the dense-only one. |
 
-**Net: recall@5 0.367 → 0.500 (+36%), MRR 0.188 → 0.365 (nearly 2×).**
+**Net: recall@5 0.367 → 0.733 (2×), MRR 0.188 → 0.532 (2.8×).** The two biggest levers
+were structure-aware chunking (+0.100) and hybrid retrieval (+0.133).
 
-**How each change was chosen (not guessed):** the baseline misses split into two
-causes, found by checking whether the correct chunk was even in the top-20:
-- *Not in top-20* (most misses) — narrative letter facts diluted inside big
-  cross-page windows → **structure-aware chunking** (exp1: +0.100, the bigger win).
-- *In top-20 but out-ranked* (e.g. Apple's 2023 fair value sat at rank 6) →
-  **re-ranker** (exp2: +0.033 recall, larger MRR gain).
+**What "recall@5" means here (verified, not assumed):** a question counts as hit only
+when a retrieved chunk *actually contains the answer* (whitespace-insensitive substring
+of the expected answer), not merely a chunk from the expected page. The eval also reports
+a looser `page_recall@5` for continuity. Tightening this in `run_eval.py` left the strict
+number unchanged (0.467 / 0.500) — confirming the headline was already answer-bearing —
+but the low `page_recall@5` (0.167) surfaced a separate bug: the golden set's
+`expected_page_numbers` are the page labels a human reads, while ingest stores the 1-based
+*physical* PDF index, and the two are offset by the reports' front matter. See the gap note
+below.
+
+**How each change was chosen (not guessed):** the misses were diagnosed by checking
+whether the correct chunk was even in the candidate pool, and if so, where it ranked:
+- *Not retrieved at all* (most baseline misses) — narrative facts diluted inside big
+  cross-page windows → **structure-aware chunking** (exp1: +0.100).
+- *Answer is an exact token dense search blurred* (dollar figures, tickers, years) →
+  **hybrid dense + BM25 fusion** (exp3: +0.133, the biggest single win).
+- *In the pool but out-ranked* (e.g. Apple's 2023 fair value sat at rank 6) →
+  **re-ranker** (exp2/exp3: reorders the fused pool, +0.100 on top of hybrid).
 
 Cost note: the re-ranker adds a ~1.1GB cross-encoder and per-query latency. It's on
-by default because it's the best-scoring config; set `RERANK_ENABLED=false` to skip
-it. **CI** ingests the whole corpus and asserts the vector-only recall floor (0.43,
-one question below the measured 0.467 to absorb cross-platform float jitter) — the
-"assert a real number, not just that it built" gate — without needing the reranker.
+by default because it's the best-scoring config; set `RERANK_ENABLED=false` to skip it
+(hybrid alone still scores 0.633). Hybrid itself is nearly free — FTS5 is built into
+SQLite, so there's no extra model or service. **CI** ingests the whole corpus and
+asserts the no-rerank recall floor (0.57, ~2 questions below the measured 0.633 to
+absorb cross-platform float jitter) — the "assert a real number, not just that it
+built" gate — without needing the reranker.
 
-**Still on the table (honest remaining gap — 15/30 still miss):** the equity-holdings
-fair-value tables and a few narrative facts that phrase the answer very differently
-from the question. Next lever would be query rewriting (restate the question in the
-document's vocabulary before embedding) — not yet done.
+**Still on the table (honest remaining gap — 8/30 still miss):** the equity-holdings
+fair-value tables (rows get flattened into ragged text at ingest, so the row structure
+is lost) and a few narrative facts that phrase the answer very differently from the
+question. Next levers: table-aware ingestion (`extract_tables()` → one fact per row)
+and query rewriting (restate the question in the document's vocabulary before
+embedding) — neither done yet.
+
+**Known bug — citation page numbers are physical, not printed.** Ingest stores each
+chunk's 1-based *physical* PDF page index; the number printed on the page (and used by
+the golden set) is offset by the reports' cover/front matter, and the offset isn't even
+constant across the three years. So a returned citation of "page 6" may not match the "6"
+a reader sees on the page. This is why `page_recall@5` sits at 0.167 while answer-bearing
+recall is 0.467 — retrieval finds the right content, but the page label it cites is off.
+Fix options: label citations explicitly as "PDF page N", or extract printed labels at
+ingest and store both.
 
 ## Claude Code skills
 
@@ -164,4 +196,4 @@ cd backend && pytest
 
 See `backend/.env.example`. Notable knobs (all recorded per eval run):
 `EMBEDDING_MODEL`, `RETRIEVAL_TOP_K`, `RERANK_ENABLED`, `RERANK_CANDIDATES`,
-`CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`.
+`HYBRID_ENABLED`, `HYBRID_CANDIDATES`, `RRF_K`, `CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`.
