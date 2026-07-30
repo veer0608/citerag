@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     # Phase 3 page-bounded, line-preserving chunks (default — it lifted recall@5
     # from 0.367 to 0.467 on the golden set).
     chunk_strategy: str = "structure"
+    # Table-aware ingestion: pull tables with pdfplumber.extract_tables() and append
+    # each row as a compact "label | v1 | v2 ..." fact. Intended to help the
+    # equity-holdings fair-value questions. OFF by default: measured on the golden
+    # set it HURT the default config (recall@5 0.733 -> 0.667, MRR 0.532 -> 0.506) —
+    # appending rows duplicates numbers the text extractor already caught, and the
+    # near-duplicate chunks crowd the re-ranker. Kept behind the flag as a recorded
+    # experiment; see the README results table.
+    table_extraction_enabled: bool = False
     chunk_tokens: int = 500
     chunk_overlap_tokens: int = 50
     # Used only by the "structure" strategy.

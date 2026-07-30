@@ -125,9 +125,12 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 | + re-ranker (bge-reranker-base, top-20 → top-5) | 0.500 | 0.173 | 0.365 | +0.033 recall, but MRR 0.302 → 0.365 — the right chunk, when found, ranks higher. 15/30. |
 | + hybrid retrieval (dense + BM25/FTS5, RRF-fused) | 0.633 | 0.193 | 0.458 | +0.133 (measured with rerank off, to isolate the fusion). 19/30. Diagnosis: the corpus is full of exact tokens — dollar amounts, tickers, years — that dense embeddings blur; a keyword index nails them. |
 | + hybrid **and** re-ranker (default config) | **0.733** | **0.220** | **0.532** | +0.100 on top of hybrid. 22/30. Re-ranker orders the richer fused pool better than it did the dense-only one. |
+| + table-aware ingestion (serialize table rows) — **rejected** | 0.667 | 0.193 | 0.506 | −0.067. 20/30. Appending `extract_tables()` rows duplicates numbers the text extractor already caught; the near-duplicate chunks crowd the re-ranker and displace the answer-bearing narrative chunk. Kept behind `TABLE_EXTRACTION_ENABLED` (off) as a recorded experiment. |
 
 **Net: recall@5 0.367 → 0.733 (2×), MRR 0.188 → 0.532 (2.8×).** The two biggest levers
-were structure-aware chunking (+0.100) and hybrid retrieval (+0.133).
+were structure-aware chunking (+0.100) and hybrid retrieval (+0.133). Not every idea
+helped: table-aware ingestion measured *worse* and was rejected rather than shipped on
+faith — the point of the harness.
 
 **What "recall@5" means here (verified, not assumed):** a question counts as hit only
 when a retrieved chunk *actually contains the answer* (whitespace-insensitive substring
@@ -157,11 +160,12 @@ absorb cross-platform float jitter) — the "assert a real number, not just that
 built" gate — without needing the reranker.
 
 **Still on the table (honest remaining gap — 8/30 still miss):** the equity-holdings
-fair-value tables (rows get flattened into ragged text at ingest, so the row structure
-is lost) and a few narrative facts that phrase the answer very differently from the
-question. Next levers: table-aware ingestion (`extract_tables()` → one fact per row)
-and query rewriting (restate the question in the document's vocabulary before
-embedding) — neither done yet.
+fair-value tables and a few narrative facts that phrase the answer very differently
+from the question. The obvious lever — table-aware ingestion — was tried and *rejected*
+(it made recall worse; see the table above). A smarter version (replace the garbled
+page text on table-heavy pages instead of appending, to avoid the duplication) and
+query rewriting (restate the question in the document's vocabulary before embedding)
+are the remaining candidates — neither done yet.
 
 **Known bug — citation page numbers are physical, not printed.** Ingest stores each
 chunk's 1-based *physical* PDF page index; the number printed on the page (and used by
@@ -196,4 +200,5 @@ cd backend && pytest
 
 See `backend/.env.example`. Notable knobs (all recorded per eval run):
 `EMBEDDING_MODEL`, `RETRIEVAL_TOP_K`, `RERANK_ENABLED`, `RERANK_CANDIDATES`,
-`HYBRID_ENABLED`, `HYBRID_CANDIDATES`, `RRF_K`, `CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`.
+`HYBRID_ENABLED`, `HYBRID_CANDIDATES`, `RRF_K`, `CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`,
+`TABLE_EXTRACTION_ENABLED` (off — a rejected experiment).

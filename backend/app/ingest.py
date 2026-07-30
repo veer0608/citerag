@@ -42,18 +42,49 @@ class IngestResult:
     n_empty_pages: int  # pages that yielded no text (likely scanned -> would need OCR)
 
 
-def parse_pdf(path: Path) -> tuple[list[Page], int]:
+def serialize_tables(tables: list[list[list[str | None]]] | None) -> str:
+    """Flatten pdfplumber tables into one compact fact per row.
+
+    pdfplumber emits financial tables with empty separator columns and with '$',
+    ')' and the '�' placeholder split into their own cells. Keep only cells
+    that carry an alphanumeric token, join a row's survivors with ' | ', and drop
+    rows with fewer than two — so a label stays attached to its value(s) on one
+    line ("Apple Inc. | 915,560,382 | 174,347") instead of being scattered.
+    """
+    lines: list[str] = []
+    for table in tables or []:
+        for row in table:
+            cells = [
+                cell.strip()
+                for cell in row
+                if cell and any(ch.isalnum() for ch in cell)
+            ]
+            if len(cells) >= 2:
+                lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
+def parse_pdf(path: Path, *, extract_tables: bool = True) -> tuple[list[Page], int]:
     """Extract text per page. Returns (pages, empty_page_count).
 
     Empty pages are surfaced rather than silently dropped: a page with no
     extractable text is almost certainly a scanned image that would need OCR, and
     hiding that would quietly corrupt recall numbers later.
+
+    When `extract_tables` is set, each page's detected tables are serialized into
+    row-level fact lines and appended to that page's text, so table rows survive
+    chunking intact. A page counts as empty only when neither text nor tables yield
+    anything.
     """
     pages: list[Page] = []
     empty = 0
     with pdfplumber.open(str(path)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
             text = page.extract_text() or ""
+            if extract_tables:
+                table_text = serialize_tables(page.extract_tables())
+                if table_text:
+                    text = (text + "\n" + table_text).strip() if text.strip() else table_text
             if not text.strip():
                 empty += 1
             pages.append(Page(page_number=i, text=text))
@@ -61,11 +92,16 @@ def parse_pdf(path: Path) -> tuple[list[Page], int]:
 
 
 def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> IngestResult:
-    path = Path(path)
+    # Resolve to a canonical absolute path so the document/chunk ids are stable
+    # regardless of whether the caller passed a relative or absolute path (and from
+    # which working directory). Without this, re-ingesting the same file as e.g.
+    # "data/corpus/x.pdf" then "/abs/data/corpus/x.pdf" hashes to different ids and
+    # duplicates the document instead of replacing it.
+    path = Path(path).resolve()
     if not path.exists():
         raise FileNotFoundError(path)
 
-    pages, empty = parse_pdf(path)
+    pages, empty = parse_pdf(path, extract_tables=settings.table_extraction_enabled)
     if settings.chunk_strategy == "structure":
         chunks = structure_aware_chunks(
             pages,
