@@ -141,13 +141,16 @@ question ──embed_query──▶ cosine top-k ──(optional) cross-encoder 
   baseline recall@5 = 0.367 recorded and committed as a regression gate.
 - **Phase 3 — fix what the eval found broken.** ✅ structure-aware chunking
   (0.367 → 0.467) then re-ranker (0.467 → 0.500), each measured and kept only
-  because the number moved. Query rewriting is the next lever but needs an LLM key.
+  because the number moved.
 - **Phase 4 — the defensible layer.** ✅ citations with page numbers, live
   `/eval/run`, and CI that ingests the corpus and asserts the recall gate.
 - **Phase 5 — hybrid retrieval.** ✅ dense (sqlite-vec) + lexical (SQLite FTS5/BM25)
   fused with reciprocal rank fusion, then re-ranked. recall@5 0.500 → 0.733 — the
-  biggest single lever, and free of any new model or service. Query rewriting is the
-  next lever but needs an LLM key.
+  biggest single lever, and free of any new model or service.
+- **Phase 6 — diagnose before tuning further.** ✅ Located the answer-bearing chunk for
+  every failing question and found the roadmap was wrong: the bottleneck is re-ranker
+  quality, not retrieval, and the golden set is now too small to resolve the remaining
+  candidate changes. See *Where the remaining 8/30 misses actually are* below.
 
 ## Results (before/after)
 
@@ -162,6 +165,7 @@ spanning the 2021–2023 reports, top_k=5. This table is the point of the projec
 | + hybrid retrieval (dense + BM25/FTS5, RRF-fused) | 0.633 | 0.193 | 0.458 | +0.133 (measured with rerank off, to isolate the fusion). 19/30. Diagnosis: the corpus is full of exact tokens — dollar amounts, tickers, years — that dense embeddings blur; a keyword index nails them. |
 | + hybrid **and** re-ranker (default config) | **0.733** | **0.220** | **0.532** | +0.100 on top of hybrid. 22/30. Re-ranker orders the richer fused pool better than it did the dense-only one. |
 | + table-aware ingestion (serialize table rows) — **rejected** | 0.667 | 0.193 | 0.506 | −0.067. 20/30. Appending `extract_tables()` rows duplicates numbers the text extractor already caught; the near-duplicate chunks crowd the re-ranker and displace the answer-bearing narrative chunk. Kept behind `TABLE_EXTRACTION_ENABLED` (off) as a recorded experiment. |
+| deeper re-rank pool (`RERANK_CANDIDATES` 20 → 50) — **rejected** | 0.700 | 0.213 | 0.502 | −0.033. 21/30. Chosen because three answers sat at ranks 21–29, outside the pool the cross-encoder ever sees. Widening the pool does surface them, but the extra distractors cost more than they recover — the re-ranker, not the pool depth, is the binding constraint. Reverted. |
 
 **Net: recall@5 0.367 → 0.733 (2×), MRR 0.188 → 0.532 (2.8×).** The two biggest levers
 were structure-aware chunking (+0.100) and hybrid retrieval (+0.133). Not every idea
@@ -194,13 +198,31 @@ asserts the no-rerank recall floor (0.57, ~2 questions below the measured 0.633 
 absorb cross-platform float jitter) — the "assert a real number, not just that it
 built" gate — without needing the reranker.
 
-**Still on the table (honest remaining gap — 8/30 still miss):** the equity-holdings
-fair-value tables and a few narrative facts that phrase the answer very differently
-from the question. The obvious lever — table-aware ingestion — was tried and *rejected*
-(it made recall worse; see the table above). A smarter version (replace the garbled
-page text on table-heavy pages instead of appending, to avoid the duplication) and
-query rewriting (restate the question in the document's vocabulary before embedding)
-are the remaining candidates — neither done yet.
+### Where the remaining 8/30 misses actually are
+
+Measured, not guessed: for every golden question, the answer-bearing chunk was located
+in a depth-50 hybrid pool to separate *"never retrieved"* from *"retrieved but
+out-ranked"*. Those need different fixes, and the split decides which lever is worth
+building.
+
+| Failure mode | Count | What would fix it |
+|---|---|---|
+| Answer never retrieved | **1** | query rewriting / HyDE — vocabulary mismatch |
+| Retrieved at rank 7–19 (inside the re-rank pool) | 5 | a stronger re-ranker; the pool already contains the answer |
+| Retrieved at rank 21–29 (outside the pool) | 3 | a deeper pool — *tried, made things worse (see table)* |
+
+**This reordered the roadmap.** Query rewriting was the assumed next lever, but it can
+only reach the single not-retrieved question — a ceiling of +0.033, which on a
+30-question set is exactly one question and indistinguishable from noise. The real
+constraint is **re-ranker quality**: 8 of 9 failures already have the answer in hand and
+rank it too low.
+
+**So the honest next step is a bigger golden set, not another tuning pass.** At n=30 a
+one-question swing is ±0.033, so the remaining candidate changes can't be told apart
+from noise by this harness — measuring them first would be false precision. After that,
+the ranked candidates are: a stronger cross-encoder (targets 5 questions), a smarter
+table strategy that *replaces* garbled page text rather than appending it (the first
+attempt's flaw), and query rewriting last (1 question).
 
 **Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
 label off the page and stores it next to the 1-based physical PDF index, so a citation
