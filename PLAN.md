@@ -51,6 +51,13 @@ Once picked, note it at the top of the README and do not revisit the choice mid-
 Reuse what is already known from the AgencyDesk project rather than learning new
 tools for their own sake.
 
+> **What shipped differs from this table in two places.** The vector store is
+> **SQLite + sqlite-vec**, not Postgres + pgvector (Docker wouldn't run on the build
+> machine — see the checklist below), and lexical **BM25 via SQLite FTS5** was added
+> alongside dense search, which the plan didn't anticipate at all and which turned out
+> to be one of the two biggest wins. The rows below are the original reasoning, kept
+> as written.
+
 | Layer | Choice | Why |
 |---|---|---|
 | Vector store | **Postgres + pgvector** | Already comfortable operating Postgres with real schemas and migrations |
@@ -68,7 +75,7 @@ tools for their own sake.
 citerag/
   README.md                 corpus choice, setup, the before/after eval table
   PLAN.md                   this file
-  docker-compose.yml        postgres (with pgvector) + api
+  docker-compose.yml        postgres (with pgvector) + api   [not built — see above]
   backend/
     alembic/versions/
       0001_schema.py         documents, chunks, eval_questions, eval_runs
@@ -140,7 +147,8 @@ Goal: a bad-but-complete pipeline, so there is a baseline to measure against.
 2. `chunking.py`: fixed-size chunking (e.g. 500 tokens, 50 token overlap) to start —
    deliberately naive, to be improved with evidence in Phase 3.
 3. Embed each chunk, store in `chunks.embedding`.
-4. `retrieval.py`: embed the query, cosine-similarity top-k via pgvector.
+4. `retrieval.py`: embed the query, cosine-similarity top-k via pgvector *(shipped:
+   sqlite-vec, later fused with BM25 — see the note above)*.
 5. `llm.py`: stuff top-k chunks into a prompt, ask the LLM to answer **and cite which
    chunk(s) it used**.
 6. `POST /query` wires it together end to end.
@@ -193,27 +201,48 @@ is itself interview material.
 3. CI (`ci.yml`) runs on every push: build the container, ingest the corpus, run
    `pytest`, and **assert recall@5 is at or above the committed threshold** — same
    pattern as the AgencyDesk CI asserting `rolbypassrls = f`, not just "the app booted".
-4. README contains, prominently, a **before/after table**:
+4. README contains, prominently, a **before/after table**. What it actually holds
+   (the figures below were illustrative when this plan was written; these are
+   measured):
 
    | Change | recall@5 | notes |
    |---|---|---|
-   | Naive fixed-size chunking | 0.56 | baseline |
-   | + structure-aware chunking | 0.68 | table rows no longer split |
-   | + re-ranker | 0.81 | biggest single gain |
+   | Naive fixed-size chunking | 0.367 | baseline, 30-question set |
+   | + structure-aware chunking | 0.467 | facts no longer diluted across page-spanning windows |
+   | + re-ranker | 0.500 | |
+   | + hybrid dense + BM25 (RRF) | 0.733 | biggest retrieval-design gain |
+   | *(golden set doubled to 60 — harder, so not comparable to the rows above)* | 0.650 | |
+   | + re-spacing welded PDF text | 0.683 | |
+   | + dictionary word segmentation | **0.767** | biggest single gain overall |
 
-   This table is worth more in an interview than any other part of the repo.
+   This table is worth more in an interview than any other part of the repo — and
+   the rejected rows are worth as much as the kept ones.
 
 ## Deliverables checklist
 
-- [ ] Corpus chosen and documented, with a note on why it's a good stress test
-- [ ] `docker compose up` runs the whole thing end to end
-- [ ] `eval/golden_set.json` — real, hand-written questions
-- [ ] `run_eval.py` producing recall@k / precision@k / MRR, stored per-run
-- [ ] At least one committed regression test on recall@5
-- [ ] Re-ranker implemented and A/B'd against no-re-ranker, with the number
-- [ ] Citations in every answer, with page numbers
-- [ ] CI asserting the recall threshold, not just "it built"
-- [ ] README with the before/after table front and center
+- [x] Corpus chosen and documented, with a note on why it's a good stress test
+      — Berkshire annual reports 2021–2023: one company across three years, so an
+      answer must come from the *right* year's table.
+- [x] ~~`docker compose up` runs the whole thing end to end~~ **— deliberately
+      dropped.** Docker Desktop cannot run on this machine (Windows 11 Home / VBS),
+      so Postgres + pgvector was replaced by **SQLite + sqlite-vec**, which needs no
+      daemon at all. `app/vectorstore.py` is the single seam that would be swapped
+      back. The constraint turned out to be a net win: the whole stack now runs from
+      `alembic upgrade head` + `uvicorn`, and CI needs no services.
+- [x] `eval/golden_set.json` — real, hand-written questions
+      — 60 questions, every answer verified to occur in a real chunk; audited to 0
+      unanswerable and 0 over-broad.
+- [x] `run_eval.py` producing recall@k / precision@k / MRR, stored per-run
+- [x] At least one committed regression test on recall@5
+      — CI-gated floor, raised with each kept improvement (currently 0.66).
+- [x] Re-ranker implemented and A/B'd against no-re-ranker, with the number
+      — and three further experiments **rejected** on the number: table-append
+      ingestion, a deeper re-rank pool, and letter↔digit splitting.
+- [x] Citations in every answer, with page numbers
+      — the *printed* page label (`page K-83 (PDF page 98)`), parsed from the
+      answer's own `[n]` markers, with inferred fallback when the model cites nothing.
+- [x] CI asserting the recall threshold, not just "it built"
+- [x] README with the before/after table front and center
 
 ## Explicitly out of scope
 
@@ -225,6 +254,23 @@ is itself interview material.
 
 ## The one sentence to have ready
 
-*"My naive retrieval got the right chunk about half the time. I built an eval set of
-real questions, found the tables were getting split mid-row, fixed the chunking, then
-added a re-ranker — recall went from 0.56 to 0.81. Here's the table."*
+*"My naive retrieval got the right chunk a third of the time. I built an eval set of
+real questions, and it kept telling me I was wrong about what was broken — the biggest
+win wasn't the re-ranker, it was discovering that PDF extraction had welded words
+together so the keyword index couldn't match them at all. Recall went from 0.37 to
+0.77, and three of the changes I tried got rejected on the number. Here's the table."*
+
+### What the plan got wrong (worth saying out loud)
+
+This document was written before any of the work. Keeping its mistakes visible is more
+useful than editing them away:
+
+- **The expected culprit was chunking splitting tables mid-row.** It contributed, but
+  the two largest wins came from *hybrid dense+BM25 retrieval* and from repairing
+  **PDF text extraction** — `pdfplumber` welds words together
+  (`MitsubishiCorporation`, `investmentsinequitysecurities`), and FTS5 turns each weld
+  into a single token, so BM25 was blind to ~10% of all text.
+- **Docker was assumed.** It wasn't available, and the constraint improved the design.
+- **The eval set was assumed adequate at 30 questions.** It wasn't: a diagnosis run on
+  it pointed at the wrong next lever, and *reversed itself* once the set was doubled.
+  Sizing the measurement instrument mattered more than any single tuning pass.

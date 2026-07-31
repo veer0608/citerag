@@ -38,12 +38,14 @@ from tests.conftest import requires_db
 # no-rerank path and left the default path unchanged:
 #   + corrected matching, no rerank:         0.650
 #   + corrected matching + rerank:           0.683  (measured, not CI-gated)
-#   + dictionary word segmentation, no rerank: 0.717  <- the gated path
-#   + dictionary word segmentation + rerank:   0.767  (measured, not CI-gated)
-# Set 3 questions (3/60 = 0.05) below the measured 0.717 so cross-platform float
+#   + dictionary word segmentation, no rerank: 0.717
+#   + dictionary word segmentation + rerank:   0.767
+#   + capital-aware segmentation, no rerank:  0.750  <- the gated path
+#   + capital-aware segmentation + rerank:    0.767  (measured, not CI-gated)
+# Set 3 questions (3/60 = 0.05) below the measured 0.750 so cross-platform float
 # jitter (CI is Linux, dev is Windows) can't flake the build, while a real
 # regression — anything that drops 4+ questions — still fails loudly.
-RECALL_AT_5_THRESHOLD = 0.66
+RECALL_AT_5_THRESHOLD = 0.70
 
 
 @requires_db

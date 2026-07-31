@@ -166,10 +166,18 @@ def _citations(
 
 
 def _answer_openai(question: str, context: str) -> tuple[str, str]:
+    """Answer via any OpenAI-compatible chat API.
+
+    Not only OpenAI: Google AI Studio (Gemini), Groq, OpenRouter and Mistral all
+    expose OpenAI-compatible endpoints, so pointing OPENAI_BASE_URL at one of them
+    and setting OPENAI_MODEL is enough to use a free tier through this same path.
+    """
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key)
-    model = "gpt-4o-mini"
+    client = OpenAI(
+        api_key=settings.openai_api_key, base_url=settings.openai_base_url or None
+    )
+    model = settings.openai_model
     resp = client.chat.completions.create(
         model=model,
         messages=[

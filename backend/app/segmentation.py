@@ -110,14 +110,30 @@ def _segment_token(token: str, vocab: dict[str, float]) -> list[str] | None:
     return pieces[::-1]
 
 
+# A weld candidate: an optional leading capital followed by lowercase. Matching the
+# capital is essential — restricting this to all-lowercase runs skipped every weld at
+# a sentence start or in a heading ("Investmentsinequitysecurities"), because the
+# capital orphaned the first letter and left an unparseable remainder. Those are
+# exactly the positions entity words occupy.
+_WELD = re.compile(rf"[A-Za-z][a-z]{{{MIN_SEGMENT_LEN - 1},}}")
+
+
 def segment_text(text: str, vocab: dict[str, float]) -> str:
-    """Re-space long all-lowercase welds using the learned vocabulary."""
+    """Re-space long welded runs using the learned vocabulary.
+
+    Lookup is case-insensitive; if the run was capitalised, the capital is restored on
+    the first piece so headings and sentence starts read correctly afterwards.
+    """
     if not vocab:
         return text
 
     def repl(match: re.Match[str]) -> str:
         token = match.group(0)
-        pieces = _segment_token(token, vocab)
-        return " ".join(pieces) if pieces else token
+        pieces = _segment_token(token.lower(), vocab)
+        if not pieces:
+            return token
+        if token[0].isupper():
+            pieces[0] = pieces[0].capitalize()
+        return " ".join(pieces)
 
-    return re.sub(rf"[a-z]{{{MIN_SEGMENT_LEN},}}", repl, text)
+    return _WELD.sub(repl, text)

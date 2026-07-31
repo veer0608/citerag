@@ -197,7 +197,10 @@ three years, and questions phrased away from the document's own wording.
 | + corrected answer matching (no re-ranker) | 0.650 (39/60) | 0.167 | 0.534 |
 | + corrected answer matching + re-ranker | 0.683 (41/60) | 0.180 | 0.578 |
 | **+ dictionary word segmentation** (no re-ranker) | 0.717 (43/60) | 0.183 | 0.584 |
-| **+ dictionary word segmentation** + re-ranker (**current default**) | **0.767 (46/60)** | **0.203** | **0.617** |
+| **+ dictionary word segmentation** + re-ranker | 0.767 (46/60) | 0.203 | 0.617 |
+| + capital-aware segmentation — **kept, headline-neutral** (no re-ranker) | 0.750 (45/60) | 0.183 | 0.561 |
+| + capital-aware segmentation + re-ranker (**current default**) | **0.767 (46/60)** | **0.190** | 0.590 |
+| + `bge-reranker-large` instead of `-base` — *measured ceiling, not the default* | **0.850 (51/60)** | 0.220 | **0.674** | +0.083 (five questions), but 45s per query on CPU — see the re-ranker section. |
 
 The first two rows are lower than 0.733 because the questions are harder, not because
 retrieval regressed — the code was identical. That 0.650 was the baseline the next
@@ -328,9 +331,21 @@ maximum-likelihood dynamic programming. Two safeguards matter:
   memorised. A test now pins this.
 
 Measured: welds fell from 10.2% to **5.4%** of tokens, and recall@5 rose **0.683 →
-0.767** (+0.083, five questions) — the largest single gain of any change here. The
-remaining half are runs the learned vocabulary can't fully explain, deliberately left
-alone; a better vocabulary is the obvious next increment.
+0.767** (+0.083, five questions) — the largest single gain of any change here.
+
+**Then running the actual app found a bug the metric had hidden.** A live query returned
+"I don't know", and its gold passage began `(4) Investmentsinequitysecurities` — still
+welded. The pattern matched `[a-z]{16,}`, *all-lowercase only*, so a leading capital
+orphaned the first letter and left an unparseable remainder. Every weld at a sentence
+start or in a heading was skipped — which is precisely where entity words sit. Recall had
+gone *up* while this whole class stayed broken; only a real query exposed it.
+
+Fixing it took welds to **3.7%** of tokens and lifted the no-re-ranker path
+0.717 → 0.750, but left the default config **unchanged at 0.767** and nudged MRR down
+(0.617 → 0.590). It is **kept anyway, and logged as headline-neutral** rather than banked
+as a win: the earlier rejections were speculative *features* that the number vetoed,
+whereas this is a *bug fix* — reverting it would mean knowingly shipping mangled text to
+protect a flat metric, and the cleaner text is also what citations quote.
 
 **A note on measuring the mechanism, not a proxy.** The first attempt to test this used
 an aggregate "share of very long words" metric, and it *contradicted* the hypothesis —
@@ -364,9 +379,34 @@ cost one question on the no-re-ranker path and left the default path unchanged a
 — so the earlier numbers were not materially inflated, which is worth knowing rather
 than assuming.
 
-Remaining candidates: a **stronger cross-encoder** (the rank 7–20 bucket), **query
-rewriting / HyDE** for genuine vocabulary gaps, and a table strategy that *replaces*
-garbled page text instead of appending it. A deeper re-rank pool is ruled out.
+### The re-ranker wasn't exhausted — it was underpowered
+
+As retrieval improved, `bge-reranker-base`'s marginal value collapsed to **+0.017 — one
+question** — for a 1.1GB model and per-query latency, and it demonstrably *demoted*
+correct chunks (a live query had the answer at depth 20 of the pool and lost it in the
+top 5). The obvious reading was that re-ranking had stopped earning its keep, so the
+experiment was set up three-way, with removal as a legitimate outcome:
+
+| Re-ranker | recall@5 | MRR | on disk | per query (CPU) |
+|---|---|---|---|---|
+| none | 0.750 (45/60) | 0.561 | — | ~0s |
+| `bge-reranker-base` (**default**) | 0.767 (46/60) | 0.590 | 1.1GB | ~10s |
+| `bge-reranker-large` | **0.850 (51/60)** | **0.674** | 2.2GB | **45s** |
+
+**That reading was wrong.** `large` gains **+0.083 — five questions** over `base`, far
+outside the ±0.017 noise band, so the cost tiebreak never applied. MRR rises too
+(0.590 → 0.674), so it isn't merely finding more answers, it ranks them higher. Ranking
+*was* the bottleneck, as the failure diagnosis said; the mistake was concluding the
+component was spent rather than the model too small.
+
+**The default stays `base` anyway**, and the reason is latency, not quality: 45s per
+query on CPU is not a product — the demo would look hung. `RERANKER_MODEL` selects
+either, so the honest summary is *0.850 is achievable and measured; 0.767 is what ships,
+because a 45-second answer isn't one.* On a GPU that tradeoff largely disappears.
+
+Remaining candidates: **query rewriting / HyDE** for genuine vocabulary gaps, and a table
+strategy that *replaces* garbled page text instead of appending it. A deeper re-rank pool
+is ruled out.
 
 **Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
 label off the page and stores it next to the 1-based physical PDF index, so a citation

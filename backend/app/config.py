@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     # LLM answer step. Priority: OpenAI key -> Anthropic key -> local model ->
     # extractive fallback. Retrieval + eval never depend on any of this.
     openai_api_key: str | None = None
+    # Any OpenAI-compatible endpoint works here — Google AI Studio (Gemini), Groq,
+    # OpenRouter and Mistral all speak this protocol, which is how a free tier can be
+    # used without a second client implementation. Leave unset for OpenAI itself.
+    openai_base_url: str | None = None
+    openai_model: str = "gpt-4o-mini"
     anthropic_api_key: str | None = None
     # Local instruct model — free, no API key, runs on CPU. Off by default so CI
     # and tests don't pull a model; the local server turns it on via LOCAL_LLM_ENABLED.
