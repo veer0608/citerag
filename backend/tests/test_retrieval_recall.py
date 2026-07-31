@@ -15,20 +15,26 @@ from app.eval.run_eval import load_golden_set, run_eval
 from app.models import Chunk
 from tests.conftest import requires_db
 
-# Committed answer-bearing recall@5 floor over the 30-question Berkshire golden set.
+# Committed answer-bearing recall@5 floor over the 60-question Berkshire golden set.
 # This gate tests the NO-RERANK path on purpose: it stays fast and needs no 1.1GB
 # cross-encoder in CI. Hybrid (dense + BM25) IS exercised — FTS5 is built into
-# SQLite, so it's free — because it's the default retrieval path. The re-ranker
-# lifts recall further (to 0.733) on top of this.
-#   Phase 2 baseline (fixed-size chunking):             0.367
-#   Phase 3 exp1 (structure-aware chunking, kept):      0.467
-#   Phase 3 exp2 (+ re-ranker, default on):             0.500
-#   Phase 5 exp3 (+ hybrid dense+BM25, no rerank):      0.633  <- measured floor
-#   Phase 5 exp3 (+ hybrid + re-ranker, default):       0.733  (measured, not CI-gated)
-# Set ~2 questions (2/30 ~ 0.067) below the measured 0.633 so cross-platform float
+# SQLite, so it's free — because it's the default retrieval path.
+#
+# History on the ORIGINAL 30-question set (not comparable to the floor below — the
+# question set changed, the code did not):
+#   fixed-size chunking:                    0.367
+#   + structure-aware chunking:             0.467
+#   + re-ranker:                            0.500
+#   + hybrid dense+BM25, no rerank:         0.633
+#   + hybrid + re-ranker (default):         0.733
+#
+# On the expanded 60-question set, which is what this floor is measured against:
+#   hybrid, no rerank:                      0.600  <- the gated path
+#   hybrid + re-ranker (default):           0.650  (measured, not CI-gated)
+# Set 3 questions (3/60 = 0.05) below the measured 0.600 so cross-platform float
 # jitter (CI is Linux, dev is Windows) can't flake the build, while a real
-# regression — anything that drops 3+ questions — still fails loudly.
-RECALL_AT_5_THRESHOLD = 0.57
+# regression — anything that drops 4+ questions — still fails loudly.
+RECALL_AT_5_THRESHOLD = 0.55
 
 
 @requires_db
