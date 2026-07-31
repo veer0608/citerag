@@ -188,14 +188,21 @@ The original set was too small to justify further tuning: at n=30 a single quest
 the diagnosis had exposed — equity-holdings table lookups, facts that differ across the
 three years, and questions phrased away from the document's own wording.
 
-| Config (unchanged code) | recall@5 | precision@5 | MRR |
+| Change | recall@5 | precision@5 | MRR |
 |---|---|---|---|
 | hybrid, no re-ranker | 0.600 (36/60) | 0.157 | 0.474 |
-| hybrid + re-ranker (**current default**) | **0.650 (39/60)** | **0.183** | **0.519** |
+| hybrid + re-ranker | 0.650 (39/60) | 0.183 | 0.519 |
+| **+ re-spacing welded PDF text** (no re-ranker) | 0.667 (40/60) | 0.183 | 0.551 |
+| **+ re-spacing welded PDF text** + re-ranker (**current default**) | **0.683 (41/60)** | **0.197** | **0.587** |
 
-Lower than 0.733 because the questions are harder, not because retrieval regressed —
-the code is identical. **This is the honest number to quote going forward**, and it is
-the baseline any future change must beat.
+The first two rows are lower than 0.733 because the questions are harder, not because
+retrieval regressed — the code was identical. That 0.650 was the baseline the next
+change had to beat.
+
+**Re-spacing welded text: +0.033 with the re-ranker, +0.067 without it** (and MRR
+0.519 → 0.587). The larger gain on the no-re-ranker path is exactly what the mechanism
+predicts: the defect was blinding BM25, so fixing it shows up most clearly where the
+cross-encoder isn't papering over the ranking. Details below.
 
 Every added question was written from the corpus text and its answer verified to occur
 in a real chunk; the page numbers are derived from where the answer actually sits rather
@@ -255,9 +262,49 @@ simply built on too few observations to be trustworthy — a one-question bucket
 signal. **Expanding the golden set before tuning was worth more than any tuning pass
 would have been**, because it changed which experiment is worth running at all.
 
-Current ranked candidates: **query rewriting / HyDE** (10 questions), a **stronger
-cross-encoder** (9), and a table strategy that *replaces* garbled page text instead of
-appending it (the first attempt's flaw). A deeper re-rank pool is already ruled out.
+### The never-retrieved bucket had nothing to do with vocabulary
+
+Reading those 10 failures instead of trusting the bucket label found the real cause.
+`pdfplumber` frequently emits words **welded together** — the equity-holdings table
+renders as `907,559,761 AppleInc. ... 1,032,852,006 BankofAmericaCorp.` FTS5 tokenizes
+on non-alphanumerics, so each weld becomes **one token**. Checked directly against the
+index:
+
+| query term | before | after |
+|---|---|---|
+| `"mitsubishi"` | **MISS** | HIT |
+| `"america"` | **MISS** | HIT |
+| `"MitsubishiCorporation"` | HIT | — |
+
+BM25 — the half of hybrid retrieval that produced the single biggest win in this
+project — was **structurally blind** to holdings-table rows for any company-name query,
+while the dense half saw only a wall of digits. That is why those questions were never
+retrieved at any depth.
+
+**Query rewriting could not have fixed this.** No rephrasing of "how many Mitsubishi
+shares" yields a token matching `MitsubishiCorporation`. Had HyDE been built first — as
+the n=60 diagnosis appeared to justify — it would have measured flat on exactly these
+questions and the technique would have taken the blame.
+
+The fix is at ingest: split tokens at case boundaries (`lower→Upper` and
+`ACRONYM→Word`) when they're long enough to be suspicious, leaving ordinary prose
+untouched. It's deterministic, costs nothing per query, and repairs the lexical and
+dense paths at once. Toggle with `SPLIT_RUN_TOGETHER_ENABLED`.
+
+Known limits, pinned by tests rather than left as surprises: splitting needs surviving
+capitals, so an all-lowercase weld (`Ofequalimportance,floatisverysticky`) stays welded;
+and `BankofAmericaCorp` becomes `Bankof America Corp` — "america" is searchable, "bank"
+still isn't. Partial repair, but enough to reach the row.
+
+**A note on measuring the mechanism, not a proxy.** The first attempt to test this used
+an aggregate "share of very long words" metric, and it *contradicted* the hypothesis —
+gold chunks scored 0.112 against a corpus average of 0.165. The aggregate was simply the
+wrong instrument: it measured whole-chunk noise rather than whether the query's entity
+was matchable. One targeted FTS5 lookup settled it.
+
+Remaining candidates: a **stronger cross-encoder** (the rank 7–20 bucket), **query
+rewriting / HyDE** for genuine vocabulary gaps, and a table strategy that *replaces*
+garbled page text instead of appending it. A deeper re-rank pool is ruled out.
 
 **Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
 label off the page and stores it next to the 1-based physical PDF index, so a citation

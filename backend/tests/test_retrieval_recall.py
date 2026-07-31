@@ -29,12 +29,14 @@ from tests.conftest import requires_db
 #   + hybrid + re-ranker (default):         0.733
 #
 # On the expanded 60-question set, which is what this floor is measured against:
-#   hybrid, no rerank:                      0.600  <- the gated path
+#   hybrid, no rerank:                      0.600
 #   hybrid + re-ranker (default):           0.650  (measured, not CI-gated)
-# Set 3 questions (3/60 = 0.05) below the measured 0.600 so cross-platform float
+#   + re-spacing welded PDF text, no rerank: 0.667  <- the gated path
+#   + re-spacing welded PDF text + rerank:   0.683  (measured, not CI-gated)
+# Set 3 questions (3/60 = 0.05) below the measured 0.667 so cross-platform float
 # jitter (CI is Linux, dev is Windows) can't flake the build, while a real
 # regression — anything that drops 4+ questions — still fails loudly.
-RECALL_AT_5_THRESHOLD = 0.55
+RECALL_AT_5_THRESHOLD = 0.61
 
 
 @requires_db
