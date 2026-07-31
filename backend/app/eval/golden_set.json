@@ -12,182 +12,496 @@
     {
       "question": "How much did Berkshire pay in U.S. federal income taxes in 2021?",
       "expected_answer": "$3.3 billion",
-      "expected_page_numbers": [5],
+      "expected_page_numbers": [
+        5
+      ],
       "expected_answer_substring": "3.3 billion"
     },
     {
       "question": "In the 2021 letter, what total corporate income-tax receipts did Berkshire say the U.S. Treasury collected?",
       "expected_answer": "$402 billion",
-      "expected_page_numbers": [5],
+      "expected_page_numbers": [
+        5
+      ],
       "expected_answer_substring": "402 billion"
     },
     {
       "question": "How much cash and cash equivalents (excluding BNSF and BHE) did Berkshire report on its balance sheet in the 2021 letter?",
       "expected_answer": "$144 billion",
-      "expected_page_numbers": [8],
+      "expected_page_numbers": [
+        8
+      ],
       "expected_answer_substring": "144 billion"
     },
     {
       "question": "How does Berkshire's 2021 letter define insurance 'float'?",
       "expected_answer": "money we hold and can invest but that does not belong to us",
-      "expected_page_numbers": [5],
+      "expected_page_numbers": [
+        5
+      ],
       "expected_answer_substring": "belongtous"
     },
     {
       "question": "What percentage of Apple did Berkshire own at the end of 2021, according to the letter?",
       "expected_answer": "5.55%",
-      "expected_page_numbers": [6],
+      "expected_page_numbers": [
+        6
+      ],
       "expected_answer_substring": "5.55%"
     },
     {
       "question": "Which holding does Berkshire's 2021 letter call its 'runner-up Giant' by year-end market value?",
       "expected_answer": "Apple",
-      "expected_page_numbers": [6],
+      "expected_page_numbers": [
+        6
+      ],
       "expected_answer_substring": "runner-up"
     },
     {
       "question": "What was the fair value of Berkshire's Apple stake at year-end 2021?",
       "expected_answer": "$161.2 billion",
-      "expected_page_numbers": [98],
+      "expected_page_numbers": [
+        98
+      ],
       "expected_answer_substring": "161.2billion"
     },
     {
       "question": "What was the fair value of Berkshire's Bank of America holding at year-end 2021?",
       "expected_answer": "$46.0 billion",
-      "expected_page_numbers": [98],
+      "expected_page_numbers": [
+        98
+      ],
       "expected_answer_substring": "46.0billion"
     },
     {
       "question": "What was the fair value of Berkshire's Coca-Cola holding at year-end 2021?",
       "expected_answer": "$23.7 billion",
-      "expected_page_numbers": [98],
+      "expected_page_numbers": [
+        98
+      ],
       "expected_answer_substring": "23.7billion"
     },
     {
       "question": "How large was Berkshire's original Occidental Petroleum investment (preferred stock plus warrants) described in the 2021 letter?",
       "expected_answer": "$10 billion",
-      "expected_page_numbers": [8],
+      "expected_page_numbers": [
+        8
+      ],
       "expected_answer_substring": "Occidental"
     },
     {
       "question": "By how much did Berkshire's insurance float grow during 2022?",
       "expected_answer": "from $147 billion to $164 billion",
-      "expected_page_numbers": [7],
+      "expected_page_numbers": [
+        7
+      ],
       "expected_answer_substring": "164 billion"
     },
     {
       "question": "What were BNSF's earnings in 2022, per the 2022 letter?",
       "expected_answer": "$5.9 billion",
-      "expected_page_numbers": [9],
+      "expected_page_numbers": [
+        9
+      ],
       "expected_answer_substring": "5.9 billion"
     },
     {
       "question": "What ownership stake did Berkshire hold in Berkshire Hathaway Energy per the 2022 letter?",
       "expected_answer": "92%",
-      "expected_page_numbers": [9],
+      "expected_page_numbers": [
+        9
+      ],
       "expected_answer_substring": "92% of BH Energy"
     },
     {
       "question": "What was the fair value of Berkshire's Apple stake at year-end 2022?",
       "expected_answer": "$119.0 billion",
-      "expected_page_numbers": [100],
+      "expected_page_numbers": [
+        100
+      ],
       "expected_answer_substring": "119.0billion"
     },
     {
       "question": "What was the fair value of Berkshire's American Express holding at year-end 2022?",
       "expected_answer": "$22.4 billion",
-      "expected_page_numbers": [100],
+      "expected_page_numbers": [
+        100
+      ],
       "expected_answer_substring": "22.4 billion"
     },
     {
       "question": "What was the fair value of Berkshire's Coca-Cola holding at year-end 2022?",
       "expected_answer": "$25.4 billion",
-      "expected_page_numbers": [100],
+      "expected_page_numbers": [
+        100
+      ],
       "expected_answer_substring": "25.4billion"
     },
     {
       "question": "What percentage of Occidental Petroleum's common stock did Berkshire own per the 2022 report?",
       "expected_answer": "21.4%",
-      "expected_page_numbers": [40],
+      "expected_page_numbers": [
+        40
+      ],
       "expected_answer_substring": "21.4%"
     },
     {
       "question": "Which non-controlled investee, alongside Amex and Apple, appears on the list Berkshire highlighted in its 2022 letter next to Moody's and Paramount Global?",
       "expected_answer": "Occidental Petroleum (list: Amex, Apple, BofA, Chevron, Coca-Cola, HP, Moody's, Occidental, Paramount)",
-      "expected_page_numbers": [9],
+      "expected_page_numbers": [
+        9
+      ],
       "expected_answer_substring": "Paramount Global"
     },
     {
       "question": "What were Berkshire's operating earnings in 2023?",
       "expected_answer": "$37.4 billion",
-      "expected_page_numbers": [6],
+      "expected_page_numbers": [
+        6
+      ],
       "expected_answer_substring": "37.4 billion"
     },
     {
       "question": "According to the 2023 letter's three-year comparison, what were Berkshire's operating earnings in 2021?",
       "expected_answer": "$27.6 billion",
-      "expected_page_numbers": [6],
+      "expected_page_numbers": [
+        6
+      ],
       "expected_answer_substring": "27.6 billion"
     },
     {
       "question": "What was the fair value of Berkshire's Apple stake at year-end 2023?",
       "expected_answer": "$174.3 billion",
-      "expected_page_numbers": [108],
+      "expected_page_numbers": [
+        108
+      ],
       "expected_answer_substring": "174.3billion"
     },
     {
       "question": "What was the fair value of Berkshire's American Express holding at year-end 2023?",
       "expected_answer": "$28.4 billion",
-      "expected_page_numbers": [108],
+      "expected_page_numbers": [
+        108
+      ],
       "expected_answer_substring": "28.4 billion"
     },
     {
       "question": "What was the fair value of Berkshire's Coca-Cola holding at year-end 2023?",
       "expected_answer": "$23.6 billion",
-      "expected_page_numbers": [108],
+      "expected_page_numbers": [
+        108
+      ],
       "expected_answer_substring": "23.6billion"
     },
     {
       "question": "What was the fair value of Berkshire's Bank of America holding at year-end 2023?",
       "expected_answer": "$34.8 billion",
-      "expected_page_numbers": [108],
+      "expected_page_numbers": [
+        108
+      ],
       "expected_answer_substring": "34.8billion"
     },
     {
       "question": "Combined, roughly what share of operating earnings did BNSF and BHE account for, per the 2023 letter?",
       "expected_answer": "more than 30%",
-      "expected_page_numbers": [13],
+      "expected_page_numbers": [
+        13
+      ],
       "expected_answer_substring": "30% of operating earnings"
     },
     {
       "question": "What interest did Berkshire acquire in Pilot Travel Centers, and in what year?",
       "expected_answer": "38.6% in 2017",
-      "expected_page_numbers": [31],
+      "expected_page_numbers": [
+        31
+      ],
       "expected_answer_substring": "38.6%"
     },
     {
       "question": "Roughly how many travel centers does Pilot (PTC) operate, per the 2023 report?",
       "expected_answer": "more than 650 across 44 states",
-      "expected_page_numbers": [35],
+      "expected_page_numbers": [
+        35
+      ],
       "expected_answer_substring": "650 travel"
     },
     {
       "question": "Does Berkshire currently pay a dividend, according to the 2023 letter?",
       "expected_answer": "No",
-      "expected_page_numbers": [9],
+      "expected_page_numbers": [
+        9
+      ],
       "expected_answer_substring": "does not currently pay dividends"
     },
     {
       "question": "What was the fair value of Berkshire's Bank of America holding at year-end 2022?",
       "expected_answer": "$34.2 billion",
-      "expected_page_numbers": [100],
+      "expected_page_numbers": [
+        100
+      ],
       "expected_answer_substring": "34.2billion"
     },
     {
       "question": "Which company does Berkshire's 2021 report describe as generating a 55-year underwriting profit that produced its float?",
       "expected_answer": "Berkshire's insurance operations",
-      "expected_page_numbers": [5, 6],
+      "expected_page_numbers": [
+        5,
+        6
+      ],
       "expected_answer_substring": "55-year"
+    },
+    {
+      "question": "How many Apple shares did Berkshire hold at the end of 2021?",
+      "expected_answer": "907,559,761 shares",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "907,559,761"
+    },
+    {
+      "question": "What was the cost basis of Berkshire's Bank of America stake at year-end 2021?",
+      "expected_answer": "$14,631 million",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "14,631"
+    },
+    {
+      "question": "How many BYD shares did Berkshire own at the end of 2021?",
+      "expected_answer": "225,000,000 shares",
+      "expected_page_numbers": [
+        8,
+        119,
+        121,
+        131
+      ],
+      "expected_answer_substring": "225,000,000"
+    },
+    {
+      "question": "What was Berkshire's BYD holding worth at year-end 2021?",
+      "expected_answer": "$7,693 million",
+      "expected_page_numbers": [
+        8,
+        125
+      ],
+      "expected_answer_substring": "7,693"
+    },
+    {
+      "question": "How many Mitsubishi Corporation shares did Berkshire hold at year-end 2021?",
+      "expected_answer": "81,714,800 shares",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "81,714,800"
+    },
+    {
+      "question": "How many Bank of New York Mellon shares did Berkshire hold at year-end 2021?",
+      "expected_answer": "66,835,615 shares",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "66,835,615"
+    },
+    {
+      "question": "How much did Berkshire spend buying back its own stock during 2021?",
+      "expected_answer": "$27.1 billion",
+      "expected_page_numbers": [
+        72
+      ],
+      "expected_answer_substring": "27.1 billion"
+    },
+    {
+      "question": "Across 2020 and 2021 together, what did Berkshire's buybacks cost?",
+      "expected_answer": "$51.7 billion",
+      "expected_page_numbers": [
+        10,
+        107
+      ],
+      "expected_answer_substring": "51.7 billion"
+    },
+    {
+      "question": "What was Berkshire's book value per Class A share at the end of 2021?",
+      "expected_answer": "$99,497",
+      "expected_page_numbers": [
+        10
+      ],
+      "expected_answer_substring": "99,497"
+    },
+    {
+      "question": "How many staff did TTI have when Berkshire acquired it?",
+      "expected_answer": "2,387 employees",
+      "expected_page_numbers": [
+        11
+      ],
+      "expected_answer_substring": "2,387"
+    },
+    {
+      "question": "By how much had TTI's earnings risen since Berkshire bought it?",
+      "expected_answer": "673%",
+      "expected_page_numbers": [
+        11
+      ],
+      "expected_answer_substring": "673%"
+    },
+    {
+      "question": "How long has Ajit Jain been at Berkshire, per the 2021 letter?",
+      "expected_answer": "35 years",
+      "expected_page_numbers": [
+        6,
+        93,
+        94,
+        102
+      ],
+      "expected_answer_substring": "35 years"
+    },
+    {
+      "question": "What was Berkshire's total gain from 1964 through 2022?",
+      "expected_answer": "3,787,464%",
+      "expected_page_numbers": [
+        4
+      ],
+      "expected_answer_substring": "3,787,464%"
+    },
+    {
+      "question": "How did the S&P 500 do over the same 1964-2022 stretch?",
+      "expected_answer": "24,708%",
+      "expected_page_numbers": [
+        4
+      ],
+      "expected_answer_substring": "24,708%"
+    },
+    {
+      "question": "In what year did Berkshire finish building its American Express position?",
+      "expected_answer": "1995",
+      "expected_page_numbers": [
+        7
+      ],
+      "expected_answer_substring": "completed in 1995"
+    },
+    {
+      "question": "How much does Amex pay Berkshire in dividends now, versus at the start?",
+      "expected_answer": "grown from $41 million to $302 million",
+      "expected_page_numbers": [
+        7
+      ],
+      "expected_answer_substring": "302 million"
+    },
+    {
+      "question": "Who ran the property-casualty insurer Berkshire acquired in 2022?",
+      "expected_answer": "Joe Brandon, who captained Alleghany",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "Joe Brandon"
+    },
+    {
+      "question": "What minimum cash cushion will Berkshire not let buybacks breach?",
+      "expected_answer": "$30 billion",
+      "expected_page_numbers": [
+        9,
+        46,
+        48,
+        57
+      ],
+      "expected_answer_substring": "30 billion"
+    },
+    {
+      "question": "Which eight of America's giants was Berkshire the largest owner of at the end of 2022?",
+      "expected_answer": "Amex, BofA, Chevron, Coca-Cola, HP, Moody's, Occidental, Paramount",
+      "expected_page_numbers": [
+        10
+      ],
+      "expected_answer_substring": "Paramount Global"
+    },
+    {
+      "question": "What bottom-line net earnings did Berkshire report for 2023?",
+      "expected_answer": "$96 billion",
+      "expected_page_numbers": [
+        6
+      ],
+      "expected_answer_substring": "96 billion"
+    },
+    {
+      "question": "What did Berkshire report as net earnings for 2022?",
+      "expected_answer": "a $23 billion loss",
+      "expected_page_numbers": [
+        6,
+        30
+      ],
+      "expected_answer_substring": "23 billion"
+    },
+    {
+      "question": "How large was Berkshire's GAAP net worth at the end of 2023?",
+      "expected_answer": "$561 billion",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "561 billion"
+    },
+    {
+      "question": "What were the other 499 S&P 500 companies worth in total in 2022?",
+      "expected_answer": "$8.9 trillion",
+      "expected_page_numbers": [
+        8
+      ],
+      "expected_answer_substring": "8.9 trillion"
+    },
+    {
+      "question": "When did Charlie Munger die?",
+      "expected_answer": "November 28, 2023",
+      "expected_page_numbers": [
+        4
+      ],
+      "expected_answer_substring": "November 28"
+    },
+    {
+      "question": "How close to his hundredth birthday was Munger when he died?",
+      "expected_answer": "33 days",
+      "expected_page_numbers": [
+        4
+      ],
+      "expected_answer_substring": "33 days"
+    },
+    {
+      "question": "Roughly how many shareholder accounts does Berkshire have?",
+      "expected_answer": "more than three million",
+      "expected_page_numbers": [
+        5
+      ],
+      "expected_answer_substring": "three million"
+    },
+    {
+      "question": "When did Buffett buy his first stock?",
+      "expected_answer": "March 11, 1942",
+      "expected_page_numbers": [
+        7,
+        9
+      ],
+      "expected_answer_substring": "March 11, 1942"
+    },
+    {
+      "question": "Where was the Dow index sitting when the 2023 letter was written?",
+      "expected_answer": "around 38,000",
+      "expected_page_numbers": [
+        7
+      ],
+      "expected_answer_substring": "38,000"
+    },
+    {
+      "question": "How much can Berkshire's unrealized capital gains move in a single day?",
+      "expected_answer": "more than $5 billion",
+      "expected_page_numbers": [
+        7
+      ],
+      "expected_answer_substring": "5 billion a day"
+    },
+    {
+      "question": "Who leads Occidental Petroleum, according to the 2023 letter?",
+      "expected_answer": "Vicki Hollub",
+      "expected_page_numbers": [
+        12
+      ],
+      "expected_answer_substring": "Vicki Hollub"
     }
   ]
 }
