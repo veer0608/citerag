@@ -55,3 +55,17 @@ def test_empty_vocabulary_is_a_no_op():
     assert segment_text("investmentsinequitysecurities", {}) == (
         "investmentsinequitysecurities"
     )
+
+
+def test_segments_a_capitalised_weld_and_restores_the_capital():
+    # Sentence starts and headings are exactly where entity words live, and an
+    # all-lowercase-only pattern skipped every one of them.
+    assert segment_text("Investmentsinequitysecurities", _vocab()) == (
+        "Investments in equity securities"
+    )
+
+
+def test_lowercase_welds_still_segment_unchanged():
+    assert segment_text("investmentsinequitysecurities", _vocab()) == (
+        "investments in equity securities"
+    )

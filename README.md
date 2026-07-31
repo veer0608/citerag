@@ -197,7 +197,9 @@ three years, and questions phrased away from the document's own wording.
 | + corrected answer matching (no re-ranker) | 0.650 (39/60) | 0.167 | 0.534 |
 | + corrected answer matching + re-ranker | 0.683 (41/60) | 0.180 | 0.578 |
 | **+ dictionary word segmentation** (no re-ranker) | 0.717 (43/60) | 0.183 | 0.584 |
-| **+ dictionary word segmentation** + re-ranker (**current default**) | **0.767 (46/60)** | **0.203** | **0.617** |
+| **+ dictionary word segmentation** + re-ranker | 0.767 (46/60) | 0.203 | 0.617 |
+| + capital-aware segmentation — **kept, headline-neutral** (no re-ranker) | 0.750 (45/60) | 0.183 | 0.561 |
+| + capital-aware segmentation + re-ranker (**current default**) | **0.767 (46/60)** | **0.190** | 0.590 |
 
 The first two rows are lower than 0.733 because the questions are harder, not because
 retrieval regressed — the code was identical. That 0.650 was the baseline the next
@@ -328,9 +330,21 @@ maximum-likelihood dynamic programming. Two safeguards matter:
   memorised. A test now pins this.
 
 Measured: welds fell from 10.2% to **5.4%** of tokens, and recall@5 rose **0.683 →
-0.767** (+0.083, five questions) — the largest single gain of any change here. The
-remaining half are runs the learned vocabulary can't fully explain, deliberately left
-alone; a better vocabulary is the obvious next increment.
+0.767** (+0.083, five questions) — the largest single gain of any change here.
+
+**Then running the actual app found a bug the metric had hidden.** A live query returned
+"I don't know", and its gold passage began `(4) Investmentsinequitysecurities` — still
+welded. The pattern matched `[a-z]{16,}`, *all-lowercase only*, so a leading capital
+orphaned the first letter and left an unparseable remainder. Every weld at a sentence
+start or in a heading was skipped — which is precisely where entity words sit. Recall had
+gone *up* while this whole class stayed broken; only a real query exposed it.
+
+Fixing it took welds to **3.7%** of tokens and lifted the no-re-ranker path
+0.717 → 0.750, but left the default config **unchanged at 0.767** and nudged MRR down
+(0.617 → 0.590). It is **kept anyway, and logged as headline-neutral** rather than banked
+as a win: the earlier rejections were speculative *features* that the number vetoed,
+whereas this is a *bug fix* — reverting it would mean knowingly shipping mangled text to
+protect a flat metric, and the cleaner text is also what citations quote.
 
 **A note on measuring the mechanism, not a proxy.** The first attempt to test this used
 an aggregate "share of very long words" metric, and it *contradicted* the hypothesis —
@@ -364,9 +378,29 @@ cost one question on the no-re-ranker path and left the default path unchanged a
 — so the earlier numbers were not materially inflated, which is worth knowing rather
 than assuming.
 
-Remaining candidates: a **stronger cross-encoder** (the rank 7–20 bucket), **query
-rewriting / HyDE** for genuine vocabulary gaps, and a table strategy that *replaces*
-garbled page text instead of appending it. A deeper re-rank pool is ruled out.
+### The re-ranker has stopped paying for itself
+
+As retrieval improved, the cross-encoder's marginal value collapsed:
+
+| | re-ranker's contribution to recall@5 |
+|---|---|
+| before hybrid retrieval | +0.033 |
+| after hybrid retrieval | +0.067 |
+| **now** | **+0.017 — one question** |
+
+For that one question it costs a **1.1GB model**, cold-start time and per-query latency.
+It also demonstrably *demotes* correct chunks: in a live query the answer-bearing passage
+sat at depth 20 of the candidate pool and did not survive into the top 5.
+
+So the next experiment is deliberately three-way — current re-ranker, `bge-reranker-large`,
+and **no re-ranker at all** — because "delete the component that stopped earning its
+keep" is a legitimate outcome, not a failure. At n=60 a one-question gap is ±0.017, so if
+a larger model lands within one question of the current one that is a tie, and the
+tiebreaker should be cost rather than the decimal.
+
+Other remaining candidates: **query rewriting / HyDE** for genuine vocabulary gaps, and a
+table strategy that *replaces* garbled page text instead of appending it. A deeper
+re-rank pool is ruled out.
 
 **Citations quote the page a reader actually sees.** Ingest reads each page's *printed*
 label off the page and stores it next to the 1-based physical PDF index, so a citation
