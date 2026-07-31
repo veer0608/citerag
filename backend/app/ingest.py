@@ -20,6 +20,7 @@ from app.chunking import Page, fixed_size_chunks, structure_aware_chunks
 from app.config import settings
 from app.embeddings import embed_documents
 from app.models import Chunk, Document
+from app.segmentation import build_vocabulary, segment_text
 
 # Stable namespace so re-ingesting the same file with the same chunking config
 # yields the same document/chunk ids — a golden set keyed on chunk id survives.
@@ -164,6 +165,16 @@ def parse_pdf(path: Path, *, extract_tables: bool = False) -> tuple[list[Page], 
             if not text.strip():
                 empty += 1
             pages.append(Page(page_number=i, text=text, page_label=label))
+
+    # Second pass: learn this document's vocabulary from the text that came out
+    # correctly spaced, then use it to re-space the all-lowercase welds. It has to
+    # come after the whole document is read — a page's own welds can't be resolved
+    # from that page alone, and the corpus is its own best dictionary.
+    if settings.word_segmentation_enabled:
+        vocab = build_vocabulary(p.text for p in pages)
+        for p in pages:
+            p.text = segment_text(p.text, vocab)
+
     return pages, empty
 
 
