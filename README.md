@@ -452,4 +452,19 @@ cd backend && pytest
 See `backend/.env.example`. Notable knobs (all recorded per eval run):
 `EMBEDDING_MODEL`, `RETRIEVAL_TOP_K`, `RERANK_ENABLED`, `RERANK_CANDIDATES`,
 `HYBRID_ENABLED`, `HYBRID_CANDIDATES`, `RRF_K`, `CHUNK_TOKENS`, `CHUNK_OVERLAP_TOKENS`,
-`TABLE_EXTRACTION_ENABLED` (off — a rejected experiment).
+`TABLE_EXTRACTION_ENABLED` (off — a rejected experiment),
+`SPLIT_RUN_TOGETHER_ENABLED`, `WORD_SEGMENTATION_ENABLED`, `RERANKER_MODEL`.
+
+The answer step works with any OpenAI-compatible endpoint via `OPENAI_BASE_URL` +
+`OPENAI_MODEL` — Google AI Studio, Groq, OpenRouter and Mistral all qualify, so a free
+tier can drive it. Retrieval and the eval harness never depend on the LLM at all.
+
+## License and corpus
+
+Code is MIT licensed (see `LICENSE`).
+
+**The corpus is not redistributed.** Berkshire Hathaway's annual reports are © Berkshire
+Hathaway Inc.; `scripts/seed_corpus.py` downloads them from berkshirehathaway.com at
+setup time into a gitignored directory. Nothing in this repository contains their
+content — the golden set stores only short answer fragments used as eval ground truth.
+Point the script at your own PDFs and the whole pipeline works unchanged.
