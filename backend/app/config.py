@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # near-duplicate chunks crowd the re-ranker. Kept behind the flag as a recorded
     # experiment; see the README results table.
     table_extraction_enabled: bool = False
+    # Re-space words that PDF extraction welded together ("MitsubishiCorporation").
+    # FTS5 makes a welded run into one token, so BM25 cannot match the entity at all;
+    # this restores it. On by default — see the results table for the measured effect.
+    split_run_together_enabled: bool = True
     chunk_tokens: int = 500
     chunk_overlap_tokens: int = 50
     # Used only by the "structure" strategy.

@@ -43,6 +43,41 @@ class IngestResult:
     n_empty_pages: int  # pages that yielded no text (likely scanned -> would need OCR)
 
 
+# pdfplumber frequently emits words welded together — "MitsubishiCorporation",
+# "AppleInc", "Berkshirepaid$27.1billionin2021". That is fatal for the lexical half
+# of hybrid retrieval: FTS5 tokenizes on non-alphanumerics, so the whole run becomes
+# ONE token and a query for "mitsubishi" cannot match it (verified against the index).
+# Splitting at case boundaries restores the entity as a searchable token.
+#
+# Two boundaries are safe to split on:
+#   lower -> Upper   "MitsubishiCorporation" -> "Mitsubishi Corporation"
+#   ACRONYM -> Word  "BYDCo"                 -> "BYD Co"
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z])(?=[A-Z])")
+_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
+# Only tokens at least this long are touched. Ordinary prose words are shorter, so
+# this leaves normal text — and correctly-spaced sentences — completely alone.
+_MIN_WELDED_LEN = 8
+
+
+def split_run_together(text: str) -> str:
+    """Re-space words that PDF extraction welded together.
+
+    Conservative by design: a token is only split when it is long enough to be
+    suspicious AND contains an internal case boundary. Real prose is untouched,
+    because ordinary words are short and have no interior capitals.
+
+    Imperfect splits are acceptable — the goal is that the entity becomes a token a
+    query can match, not perfect typography. "BankofAmericaCorp" yields
+    "Bankof America Corp": "america" is now searchable even though "bank" is not.
+    """
+    out = []
+    for token in text.split(" "):
+        if len(token) >= _MIN_WELDED_LEN:
+            token = _ACRONYM_BOUNDARY.sub(" ", _CAMEL_BOUNDARY.sub(" ", token))
+        out.append(token)
+    return " ".join(out)
+
+
 # A printed page label sitting alone on the final line of a page: either a plain
 # number from the shareholder letter ("7") or the 10-K's prefixed form ("K-83").
 # Anchored and length-capped so a stray figure in the text isn't mistaken for one.
@@ -120,6 +155,8 @@ def parse_pdf(path: Path, *, extract_tables: bool = False) -> tuple[list[Page], 
             text = page.extract_text() or ""
             # Read the label off the raw page text, before tables are appended.
             text, label = extract_page_label(text)
+            if settings.split_run_together_enabled:
+                text = split_run_together(text)
             if extract_tables:
                 table_text = serialize_tables(page.extract_tables())
                 if table_text:
