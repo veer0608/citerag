@@ -26,6 +26,72 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", "", text).lower()
 
 
+def _collapse(text: str) -> str:
+    """Lowercase, collapsing runs of whitespace to a single space."""
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _extends_number_left(haystack: str, i: int) -> bool:
+    """Do the characters ending at index i-1 continue a number leftwards?
+
+    A digit always does. A comma does only when a digit precedes it — that's a
+    thousands separator ("3,225,000,000"). A trailing sentence comma does not.
+    """
+    if i <= 0:
+        return False
+    prev = haystack[i - 1]
+    if prev.isdigit():
+        return True
+    return prev == "," and i - 2 >= 0 and haystack[i - 2].isdigit()
+
+
+def _extends_number_right(haystack: str, j: int) -> bool:
+    """Mirror of the above for the characters starting at index j."""
+    if j >= len(haystack):
+        return False
+    nxt = haystack[j]
+    if nxt.isdigit():
+        return True
+    return nxt == "," and j + 1 < len(haystack) and haystack[j + 1].isdigit()
+
+
+def _bounded_in(haystack: str, needle: str) -> bool:
+    """`needle` occurs in `haystack` without being embedded in a longer number."""
+    if not needle:
+        return False
+    starts_num, ends_num = needle[0].isdigit(), needle[-1].isdigit()
+    if not (starts_num or ends_num):
+        return needle in haystack
+    for m in re.finditer(re.escape(needle), haystack):
+        if (not starts_num or not _extends_number_left(haystack, m.start())) and (
+            not ends_num or not _extends_number_right(haystack, m.end())
+        ):
+            return True
+    return False
+
+
+def _contains(content: str, needle_raw: str) -> bool:
+    """Does this passage contain the expected answer?
+
+    Two PDF artefacts pull in opposite directions, so both forms are tried:
+
+    * pdfplumber welds words together, so "27.1 billion" only matches once ALL
+      whitespace is stripped ("berkshirepaid$27.1billionin2021");
+    * stripping whitespace also jams neighbouring TABLE CELLS together, so
+      "... 232 7,693 ..." becomes "...2327,693..." and a naive test scores "7,693"
+      as present inside "67,693" in an unrelated totals row — a question then
+      "passes" on a chunk that never contained the answer.
+
+    Matching against the space-collapsed form as well recovers the table case, and a
+    digit/comma boundary check on both forms rejects number-inside-number hits.
+    """
+    if not needle_raw:
+        return False
+    return _bounded_in(_collapse(content), _collapse(needle_raw)) or _bounded_in(
+        _squash(content), _squash(needle_raw)
+    )
+
+
 @dataclass
 class GoldenQuestion:
     question: str
@@ -49,8 +115,7 @@ class GoldenQuestion:
             # yields "164 billion" on one page and "164billion" on another), and a
             # re-chunk shifts whitespace again. Comparing with all whitespace
             # stripped keeps the golden set robust to both.
-            needle = _squash(self.expected_answer_substring)
-            return bool(needle and needle in _squash(chunk.content))
+            return _contains(chunk.content, self.expected_answer_substring)
         if self.expected_page_numbers:
             return self._page_matches(chunk)
         return False
