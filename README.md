@@ -193,7 +193,11 @@ three years, and questions phrased away from the document's own wording.
 | hybrid, no re-ranker | 0.600 (36/60) | 0.157 | 0.474 |
 | hybrid + re-ranker | 0.650 (39/60) | 0.183 | 0.519 |
 | **+ re-spacing welded PDF text** (no re-ranker) | 0.667 (40/60) | 0.183 | 0.551 |
-| **+ re-spacing welded PDF text** + re-ranker (**current default**) | **0.683 (41/60)** | **0.197** | **0.587** |
+| **+ re-spacing welded PDF text** + re-ranker | 0.683 (41/60) | 0.197 | 0.587 |
+| + corrected answer matching (no re-ranker) | 0.650 (39/60) | 0.167 | 0.534 |
+| + corrected answer matching + re-ranker | 0.683 (41/60) | 0.180 | 0.578 |
+| **+ dictionary word segmentation** (no re-ranker) | 0.717 (43/60) | 0.183 | 0.584 |
+| **+ dictionary word segmentation** + re-ranker (**current default**) | **0.767 (46/60)** | **0.203** | **0.617** |
 
 The first two rows are lower than 0.733 because the questions are harder, not because
 retrieval regressed — the code was identical. That 0.650 was the baseline the next
@@ -296,11 +300,69 @@ capitals, so an all-lowercase weld (`Ofequalimportance,floatisverysticky`) stays
 and `BankofAmericaCorp` becomes `Bankof America Corp` — "america" is searchable, "bank"
 still isn't. Partial repair, but enough to reach the row.
 
+### The all-lowercase welds were an order of magnitude bigger
+
+Case-boundary splitting can only help where capitals survived. Measuring what it
+*couldn't* reach found the larger defect:
+
+| | |
+|---|---|
+| chunks containing a 16+ char all-lowercase weld | **1,971 / 2,144 (92%)** |
+| such welds, as a share of all alphabetic tokens | **10.2%** |
+
+Real examples: `investmentsinequitysecurities`,
+`significantaccountingpoliciesandpractices`, `unpaidlossesandlossadjustmentexpenses` —
+whole phrases collapsed into one FTS5 token, so BM25 could not match *any* word inside
+them. This degrades lexical retrieval across nearly the entire corpus, not just tables.
+
+`app/segmentation.py` repairs them by learning a vocabulary **from the corpus itself**
+(only ~10% of tokens are welded, so the other 90% already spell out the domain
+vocabulary better than a generic English wordlist would), then re-spacing long runs by
+maximum-likelihood dynamic programming. Two safeguards matter:
+
+* **All-or-nothing.** A run is re-spaced only if *every* piece is a known word, so an
+  unrecognised run is left exactly as it was instead of shredded into plausible noise.
+* **The vocabulary excludes long tokens**, or welds get learned *as words* and the
+  segmenter starts explaining one weld with another. The first version did exactly
+  that — it "explained" `unpaidlossesandlossadjustmentexpenses` using a weld it had
+  memorised. A test now pins this.
+
+Measured: welds fell from 10.2% to **5.4%** of tokens, and recall@5 rose **0.683 →
+0.767** (+0.083, five questions) — the largest single gain of any change here. The
+remaining half are runs the learned vocabulary can't fully explain, deliberately left
+alone; a better vocabulary is the obvious next increment.
+
 **A note on measuring the mechanism, not a proxy.** The first attempt to test this used
 an aggregate "share of very long words" metric, and it *contradicted* the hypothesis —
 gold chunks scored 0.112 against a corpus average of 0.165. The aggregate was simply the
 wrong instrument: it measured whole-chunk noise rather than whether the query's entity
 was matchable. One targeted FTS5 lookup settled it.
+
+### Auditing the ground truth itself
+
+Re-reading the failures also turned up bugs in the *measurement*, not the system. Both
+directions were wrong:
+
+* **False hits.** Matching stripped all whitespace, which jams neighbouring table cells
+  together — so `7,693` was found inside `67,693` in an unrelated totals row, and a
+  question could pass on a chunk that never held the answer.
+* **False misses**, once that was naively tightened: `$99,497,` and `November 28,` were
+  rejected because a *sentence* comma was read as a thousands separator.
+
+Matching now runs against both the space-collapsed and fully-stripped forms, treating a
+comma as part of a number only when a digit follows it. Three questions also had ground
+truth that tested nothing and were repointed:
+
+| Question | Was | Now |
+|---|---|---|
+| Ajit Jain's tenure | `35 years` — matched a *depreciation schedule* ("useful lives ranging from 3 to 35 years") | `35 years later` — 1 chunk |
+| Occidental investment | `Occidental` — **44 chunks**, any mention counted | `$10 billion investment in Occidental` — 2 chunks |
+| Pilot interest | `38.6%` — 19 chunks | `38.6% interest in Pilot` — 10 chunks |
+
+All 60 questions now have ground truth that is answerable and specific. The correction
+cost one question on the no-re-ranker path and left the default path unchanged at 0.683
+— so the earlier numbers were not materially inflated, which is worth knowing rather
+than assuming.
 
 Remaining candidates: a **stronger cross-encoder** (the rank 7–20 bucket), **query
 rewriting / HyDE** for genuine vocabulary gaps, and a table strategy that *replaces*

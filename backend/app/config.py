@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # FTS5 makes a welded run into one token, so BM25 cannot match the entity at all;
     # this restores it. On by default — see the results table for the measured effect.
     split_run_together_enabled: bool = True
+    # Dictionary segmentation for all-lowercase welds ("investmentsinequitysecurities").
+    # Case-boundary splitting can't touch these, and they are ~10% of all alphabetic
+    # tokens across 92% of chunks. The vocabulary is learned from the document itself.
+    word_segmentation_enabled: bool = True
     chunk_tokens: int = 500
     chunk_overlap_tokens: int = 50
     # Used only by the "structure" strategy.

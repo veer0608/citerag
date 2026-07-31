@@ -87,7 +87,7 @@
       "expected_page_numbers": [
         8
       ],
-      "expected_answer_substring": "Occidental"
+      "expected_answer_substring": "$10 billion investment in Occidental"
     },
     {
       "question": "By how much did Berkshire's insurance float grow during 2022?",
@@ -215,7 +215,7 @@
       "expected_page_numbers": [
         31
       ],
-      "expected_answer_substring": "38.6%"
+      "expected_answer_substring": "38.6% interest in Pilot"
     },
     {
       "question": "Roughly how many travel centers does Pilot (PTC) operate, per the 2023 report?",
@@ -347,12 +347,9 @@
       "question": "How long has Ajit Jain been at Berkshire, per the 2021 letter?",
       "expected_answer": "35 years",
       "expected_page_numbers": [
-        6,
-        93,
-        94,
-        102
+        6
       ],
-      "expected_answer_substring": "35 years"
+      "expected_answer_substring": "35 years later"
     },
     {
       "question": "What was Berkshire's total gain from 1964 through 2022?",

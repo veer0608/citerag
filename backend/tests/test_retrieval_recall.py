@@ -31,12 +31,19 @@ from tests.conftest import requires_db
 # On the expanded 60-question set, which is what this floor is measured against:
 #   hybrid, no rerank:                      0.600
 #   hybrid + re-ranker (default):           0.650  (measured, not CI-gated)
-#   + re-spacing welded PDF text, no rerank: 0.667  <- the gated path
+#   + re-spacing welded PDF text, no rerank: 0.667
 #   + re-spacing welded PDF text + rerank:   0.683  (measured, not CI-gated)
-# Set 3 questions (3/60 = 0.05) below the measured 0.667 so cross-platform float
+# Then answer matching was tightened so a figure can't match inside a longer figure
+# ("7,693" was matching within "67,693"), which removed one false hit on the
+# no-rerank path and left the default path unchanged:
+#   + corrected matching, no rerank:         0.650
+#   + corrected matching + rerank:           0.683  (measured, not CI-gated)
+#   + dictionary word segmentation, no rerank: 0.717  <- the gated path
+#   + dictionary word segmentation + rerank:   0.767  (measured, not CI-gated)
+# Set 3 questions (3/60 = 0.05) below the measured 0.717 so cross-platform float
 # jitter (CI is Linux, dev is Windows) can't flake the build, while a real
 # regression — anything that drops 4+ questions — still fails loudly.
-RECALL_AT_5_THRESHOLD = 0.61
+RECALL_AT_5_THRESHOLD = 0.66
 
 
 @requires_db
