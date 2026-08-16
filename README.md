@@ -1,5 +1,7 @@
 # CiteRAG
 
+[![ci](https://github.com/veer0608/citerag/actions/workflows/ci.yml/badge.svg)](https://github.com/veer0608/citerag/actions/workflows/ci.yml)
+
 A retrieval-augmented generation system that answers questions over a **real, messy
 document set**, cites the exact source passage (with page number) for every answer,
 and — the part most tutorial RAG projects skip — ships a **golden-question eval
