@@ -51,7 +51,5 @@ decisions that were expensive to reach.
 
 ## Environment
 
-- Shell is PowerShell; POSIX flags like `ls -la` fail there.
-- Docker cannot run on this machine (Win11 Home / VBS). Do not propose it.
-- The only live key is Groq free tier; its real limit is tokens-per-day and it
-  appears in no response header.
+Machine-wide constraints (PowerShell, no Docker, Groq's invisible daily cap) live in
+`~/.claude/CLAUDE.md` and are not repeated here.
