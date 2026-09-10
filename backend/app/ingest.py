@@ -189,27 +189,57 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
         raise FileNotFoundError(path)
 
     pages, empty = parse_pdf(path, extract_tables=settings.table_extraction_enabled)
-    if settings.chunk_strategy == "structure":
-        chunks = structure_aware_chunks(
-            pages,
-            max_tokens=settings.structure_max_tokens,
-            overlap_lines=settings.structure_overlap_lines,
-        )
-    else:
-        chunks = fixed_size_chunks(
-            pages,
-            chunk_tokens=settings.chunk_tokens,
-            overlap_tokens=settings.chunk_overlap_tokens,
-        )
+    chunks = _chunk_pages(pages)
     if not chunks:
         raise ValueError(
             f"{path.name}: no extractable text in any page "
             f"({empty} empty pages) — likely a scanned PDF needing OCR."
         )
 
+    return _persist(session, str(path), title or path.stem, chunks, n_pages=len(pages), n_empty_pages=empty)
+
+
+def ingest_web_page(
+    session: Session, url: str, markdown: str, *, title: str | None = None
+) -> IngestResult:
+    """Ingest one already-fetched web page (see app/firecrawl_client.py).
+
+    A crawled page has no page numbers, so unlike ingest_pdf it's chunked as a
+    single Page — citations for web documents resolve through document_id ->
+    Document.source_path (the URL) rather than page_number/page_label.
+    """
+    chunks = _chunk_pages([Page(page_number=1, text=markdown)])
+    if not chunks:
+        raise ValueError(f"{url}: no extractable text")
+
+    return _persist(session, url, title or url, chunks, n_pages=1, n_empty_pages=0)
+
+
+def _chunk_pages(pages: list[Page]) -> list:
+    if settings.chunk_strategy == "structure":
+        return structure_aware_chunks(
+            pages,
+            max_tokens=settings.structure_max_tokens,
+            overlap_lines=settings.structure_overlap_lines,
+        )
+    return fixed_size_chunks(
+        pages,
+        chunk_tokens=settings.chunk_tokens,
+        overlap_tokens=settings.chunk_overlap_tokens,
+    )
+
+
+def _persist(
+    session: Session,
+    source_path: str,
+    title: str,
+    chunks: list,
+    *,
+    n_pages: int,
+    n_empty_pages: int,
+) -> IngestResult:
     embeddings = embed_documents([c.content for c in chunks])
 
-    source_path = str(path)
     doc_id = _document_id(source_path)
 
     # Idempotent: re-ingesting the same file replaces its prior rows. Vec and FTS
@@ -220,7 +250,7 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
     session.execute(delete(Document).where(Document.id == doc_id))
     session.flush()
 
-    document = Document(id=doc_id, title=title or path.stem, source_path=source_path)
+    document = Document(id=doc_id, title=title, source_path=source_path)
     session.add(document)
     session.flush()
 
@@ -261,7 +291,7 @@ def ingest_pdf(session: Session, path: Path, *, title: str | None = None) -> Ing
     return IngestResult(
         document_id=str(document.id),
         title=document.title,
-        n_pages=len(pages),
+        n_pages=n_pages,
         n_chunks=len(chunks),
-        n_empty_pages=empty,
+        n_empty_pages=n_empty_pages,
     )

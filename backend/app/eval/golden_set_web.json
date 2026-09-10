@@ -1,0 +1,199 @@
+{
+  "questions": [
+    {
+      "question": "How many independent allowlists does a restricted Firecrawl API key have?",
+      "expected_answer": "two — allowed formats and allowed endpoints",
+      "expected_answer_substring": "Each key has two independent allowlists"
+    },
+    {
+      "question": "What happens to a Firecrawl API key request when its restriction configuration can't be verified?",
+      "expected_answer": "requests fail closed (are rejected) rather than bypassing the restriction",
+      "expected_answer_substring": "Requests fail closed (are rejected) rather than bypassing the restriction"
+    },
+    {
+      "question": "If a Firecrawl scrape request doesn't specify a proxy location, which region does it default to?",
+      "expected_answer": "US",
+      "expected_answer_substring": "Firecrawl will automatically use US proxies"
+    },
+    {
+      "question": "What does Firecrawl do if you request a proxy country it doesn't have a proxy in?",
+      "expected_answer": "uses the closest available region (EU or US), with browser location set to the requested country",
+      "expected_answer_substring": "closest available region (EU or US) and set the browser location to your requested country"
+    },
+    {
+      "question": "Is Firecrawl's `proxy` request parameter still recommended to use directly?",
+      "expected_answer": "no — it's deprecated; `auto` (the default) is recommended instead",
+      "expected_answer_substring": "parameter is deprecated. We recommend"
+    },
+    {
+      "question": "What is the default maximum lifetime of a Firecrawl browser sandbox session?",
+      "expected_answer": "600 seconds (10 minutes), configurable 30-3600s",
+      "expected_answer_substring": "Maximum session lifetime (30-3600s)"
+    },
+    {
+      "question": "How long can a Firecrawl browser sandbox session sit idle before it's auto-closed, by default?",
+      "expected_answer": "300 seconds (5 minutes)",
+      "expected_answer_substring": "Auto-close after inactivity (10-3600s)"
+    },
+    {
+      "question": "In a Firecrawl browser sandbox persistent profile, what does setting saveChanges to false let you do?",
+      "expected_answer": "load existing profile data without writing to it — useful for multiple concurrent readers",
+      "expected_answer_substring": "load existing data without writing"
+    },
+    {
+      "question": "What happens to files downloaded inside a Firecrawl browser sandbox session once the session ends?",
+      "expected_answer": "they're lost — the sandbox filesystem is ephemeral",
+      "expected_answer_substring": "the sandbox filesystem is ephemeral"
+    },
+    {
+      "question": "What pre-installed CLI lets agents control a Firecrawl browser sandbox with simple bash commands instead of writing Playwright code?",
+      "expected_answer": "agent-browser",
+      "expected_answer_substring": "headless browser CLI pre-installed in every sandbox"
+    },
+    {
+      "question": "How many failed retry attempts does Firecrawl allow for a webhook before giving up on it?",
+      "expected_answer": "3",
+      "expected_answer_substring": "After 3 failed retries, the webhook is marked as failed"
+    },
+    {
+      "question": "What kind of HTTP status must a webhook endpoint return for Firecrawl to consider delivery successful?",
+      "expected_answer": "a 2xx status",
+      "expected_answer_substring": "Your endpoint must respond with a"
+    },
+    {
+      "question": "Which Firecrawl MCP tool should you use when you have a search query rather than a known URL?",
+      "expected_answer": "firecrawl_search",
+      "expected_answer_substring": "You have a query rather than a known URL"
+    },
+    {
+      "question": "What former Firecrawl MCP tool has been deprecated and removed from the current tool surface?",
+      "expected_answer": "the Extract MCP tool",
+      "expected_answer_substring": "The former Extract MCP tool is deprecated"
+    },
+    {
+      "question": "What should you check first if an MCP client using Firecrawl returns a 401 error?",
+      "expected_answer": "the configured server URL",
+      "expected_answer_substring": "check the configured server URL first"
+    },
+    {
+      "question": "What does Firecrawl's queue-status endpoint report on?",
+      "expected_answer": "metrics about your team's scrape queue",
+      "expected_answer_substring": "Metrics about your team's scrape queue"
+    },
+    {
+      "question": "In Firecrawl's queue-status response, what does the mostRecentSuccess field represent?",
+      "expected_answer": "the timestamp of the most recent successful job",
+      "expected_answer_substring": "Timestamp of the most recent successful job"
+    },
+    {
+      "question": "In Firecrawl's queue-status response, what does the concurrency field represent?",
+      "expected_answer": "the maximum number of concurrent active jobs based on your plan",
+      "expected_answer_substring": "Maximum number of concurrent active jobs based on your plan"
+    },
+    {
+      "question": "What must you do instead of using the removed v0 fullPageScreenshot parameter?",
+      "expected_answer": "add \"screenshot@fullPage\" to formats",
+      "expected_answer_substring": "screenshot@fullPage"
+    },
+    {
+      "question": "In the deprecated v0 Python SDK, what does crawl_url return when wait_until_done is set to True?",
+      "expected_answer": "the crawl result once the job is completed",
+      "expected_answer_substring": "will return the crawl result once the job is completed"
+    },
+    {
+      "question": "When was Firecrawl's v0 API deprecated?",
+      "expected_answer": "April 1, 2025",
+      "expected_answer_substring": "deprecated on April 1, 2025"
+    },
+    {
+      "question": "What class do you initialize with your API key to use Firecrawl's deprecated v0 Python SDK?",
+      "expected_answer": "FirecrawlApp",
+      "expected_answer_substring": "FirecrawlApp"
+    },
+    {
+      "question": "In Firecrawl's Anthropic integration guide, which Claude model is used in the tool-use example?",
+      "expected_answer": "claude-haiku-4-5",
+      "expected_answer_substring": "claude-haiku-4-5"
+    },
+    {
+      "question": "What is the server URL for Firecrawl's keyless MCP server, per the ElevenAgents integration guide?",
+      "expected_answer": "https://mcp.firecrawl.dev/v2/mcp",
+      "expected_answer_substring": "mcp.firecrawl.dev/v2/mcp"
+    },
+    {
+      "question": "Which three tools does Firecrawl's keyless MCP server expose, according to the ElevenAgents guide?",
+      "expected_answer": "Search, Scrape, and Parse",
+      "expected_answer_substring": "Keyless MCP exposes exactly Search, Scrape, and Parse"
+    },
+    {
+      "question": "In the ElevenAgents integration guide, what is the default tool-approval mode?",
+      "expected_answer": "Always Ask — the agent requests permission before every tool call",
+      "expected_answer_substring": "the agent requests permission before every tool call"
+    },
+    {
+      "question": "According to Firecrawl's introduction page, what does the Search feature give you in one API call?",
+      "expected_answer": "search results plus full page content, in one call",
+      "expected_answer_substring": "Search the web and get full page content from results in one call"
+    },
+    {
+      "question": "What is recommended for voice agents using Firecrawl to avoid overwhelming the LLM's context with long scraped pages?",
+      "expected_answer": "use onlyMainContent: true (or instruct the agent to summarize aggressively)",
+      "expected_answer_substring": "Limit response size"
+    },
+    {
+      "question": "How much does a single call to Firecrawl's /map endpoint cost in credits?",
+      "expected_answer": "1 credit per call, regardless of how many URLs come back",
+      "expected_answer_substring": "consumes 1 credit per call, regardless of the number of URLs returned"
+    },
+    {
+      "question": "How is Firecrawl's Search endpoint billed in credits?",
+      "expected_answer": "2 credits per 10 results, rounded up, plus per-page scrape costs for any results scraped",
+      "expected_answer_substring": "Rounded up per 10 results (e.g., 11 results = 4 credits)"
+    },
+    {
+      "question": "How many free daily runs does Firecrawl's autonomous Agent endpoint include before usage-based pricing applies?",
+      "expected_answer": "5",
+      "expected_answer_substring": "5 daily runs free; usage-based pricing beyond that"
+    },
+    {
+      "question": "What does enabling Zero Data Retention on a Firecrawl scrape guarantee?",
+      "expected_answer": "no data is persisted beyond the request",
+      "expected_answer_substring": "Ensures no data is persisted beyond the request"
+    },
+    {
+      "question": "What is the total credit cost of scraping a page with both JSON format and Zero Data Retention enabled?",
+      "expected_answer": "6 credits (1 base + 4 for JSON + 1 for ZDR)",
+      "expected_answer_substring": "scraping a page with both JSON format and Zero Data Retention costs"
+    },
+    {
+      "question": "Does Firecrawl's official Python SDK hold its own browser session separate from the endpoints it calls?",
+      "expected_answer": "no — the SDK is just a client for the same endpoints, with no session of its own",
+      "expected_answer_substring": "The SDK is a client for the same endpoints"
+    },
+    {
+      "question": "Which Firecrawl capabilities are delivered only through Firecrawl Cloud and aren't part of the default self-hosted stack?",
+      "expected_answer": "Agent, Browser, and Interact",
+      "expected_answer_substring": "are delivered through Firecrawl Cloud and are not part of the default self-hosted stack"
+    },
+    {
+      "question": "What does Firecrawl's /support/docs-search endpoint provide, compared to /support/ask?",
+      "expected_answer": "docs-grounded answers from Firecrawl's public documentation, rather than a full diagnostic loop scoped to your team",
+      "expected_answer_substring": "Docs-grounded answers from Firecrawl"
+    },
+    {
+      "question": "Since Spark 1 models were deprecated, which model does every run of Firecrawl's /agent endpoint execute on?",
+      "expected_answer": "spark-2",
+      "expected_answer_substring": "Spark 1 models are deprecated and route to"
+    },
+    {
+      "question": "Which exact Firecrawl release version is the self-hosting guide verified against?",
+      "expected_answer": "v2.11.162",
+      "expected_answer_substring": "v2.11.162"
+    },
+    {
+      "question": "According to Firecrawl's self-hosting guide, when should you choose Firecrawl Cloud instead of self-hosting?",
+      "expected_answer": "when you want to start scraping without running infrastructure",
+      "expected_answer_substring": "when you want to start scraping without running infrastructure"
+    }
+  ]
+}

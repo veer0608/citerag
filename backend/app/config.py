@@ -93,6 +93,10 @@ class Settings(BaseSettings):
 
     # LLM answer step. Priority: OpenAI key -> Anthropic key -> local model ->
     # extractive fallback. Retrieval + eval never depend on any of this.
+    # Firecrawl (web ingestion). Unset = /ingest/web refuses to run rather than
+    # failing deep inside an HTTP call with an opaque 401.
+    firecrawl_api_key: str | None = None
+
     openai_api_key: str | None = None
     # Any OpenAI-compatible endpoint works here — Google AI Studio (Gemini), Groq,
     # OpenRouter and Mistral all speak this protocol, which is how a free tier can be

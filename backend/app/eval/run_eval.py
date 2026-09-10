@@ -191,12 +191,13 @@ def run_eval(
     rerank: bool | None = None,
     hybrid: bool | None = None,
     persist: bool = True,
+    golden_set_path: Path | None = None,
 ) -> dict:
     top_k = settings.retrieval_top_k if top_k is None else top_k
     rerank = settings.rerank_enabled if rerank is None else rerank
     hybrid = settings.hybrid_enabled if hybrid is None else hybrid
 
-    golden = load_golden_set()
+    golden = load_golden_set(golden_set_path or GOLDEN_SET_PATH)
     config = {
         "top_k": top_k,
         "rerank_enabled": rerank,

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.routers import eval as eval_router
-from app.routers import ingest, query
+from app.routers import ingest, query, web_ingest
 
 logger = logging.getLogger("citerag")
 
@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CiteRAG", version="0.1.0", lifespan=lifespan)
 
 app.include_router(ingest.router)
+app.include_router(web_ingest.router)
 app.include_router(query.router)
 app.include_router(eval_router.router)
 
