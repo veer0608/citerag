@@ -21,9 +21,16 @@ _SYSTEM = (
     "answer is not in the context, say you don't know."
 )
 
-# A citation marker in the answer text: "[2]". Bounded to two digits — a longer
-# bracketed number is a figure from the source, not a marker.
-_MARKER_RE = re.compile(r"\[(\d{1,2})\]")
+# A citation marker in the answer text. The system prompt asks for "[2]", but
+# some models (observed: openai/gpt-oss-120b via Groq) instead emit the
+# fullwidth-bracket style OpenAI's own file-search tool uses — "【5】", or with a
+# trailing quote/range like "【1†L9-L13】" — regardless of what was asked for.
+# Matched leniently: either bracket style, with anything up to the closing
+# bracket ignored, so both forms resolve to the same marker number. The digit
+# run must end before that trailing content starts — (?!\d) — so a genuinely
+# long bracketed number ("[1234]", a figure from the source) still isn't
+# mistaken for a marker with "34" as noise.
+_MARKER_RE = re.compile(r"[\[【](\d{1,2})(?!\d)[^\]】]*[\]】]")
 
 
 # A figure in the answer worth checking against the passages: "41.4%", "3.3",

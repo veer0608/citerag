@@ -43,6 +43,21 @@ def test_long_bracketed_number_is_data_not_a_marker():
     assert used_markers("The value was [1234] million.", 5) == []
 
 
+def test_fullwidth_bracket_marker_is_recognized():
+    # openai/gpt-oss-120b (via Groq) emits OpenAI's file-search citation style
+    # regardless of the system prompt asking for "[2]".
+    assert used_markers("Float grew 【2】.", 5) == [2]
+
+
+def test_fullwidth_bracket_with_trailing_range_is_recognized():
+    # The same model sometimes appends a quote/line-range after the marker digit.
+    assert used_markers("Taxes were $3.3bn 【1†L9-L13】.", 5) == [1]
+
+
+def test_long_fullwidth_bracketed_number_is_data_not_a_marker():
+    assert used_markers("The value was 【1234】 million.", 5) == []
+
+
 def test_citations_cover_only_the_used_markers():
     chunks = [_chunk("a", 8, "6"), _chunk("b", 99, "K-84"), _chunk("c", 12)]
     cites = _citations(chunks, [2])
