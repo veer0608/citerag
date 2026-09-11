@@ -429,6 +429,53 @@ being read by eye off a PDF viewer. So page matching in the eval stays on the ph
 index, and `page_recall` remains only an indicative signal — which is exactly why the
 headline metric is answer-bearing recall instead.
 
+## A second corpus, to check the pipeline generalizes
+
+Everything above was built against dense financial PDFs. To check the eval harness and
+citation pipeline aren't secretly tuned to that one document type, the same code was
+pointed at a **live website** via [Firecrawl](https://firecrawl.dev): `POST /ingest/web`
+scrapes or crawls a site and ingests each page as its own document, citable by URL
+instead of a page number.
+
+**Corpus:** 100 English pages from `docs.firecrawl.dev` — API reference, features,
+developer guides, cookbooks, SDKs, billing, webhooks (1,445 chunks). Crawling takes
+`include_paths`/`exclude_paths` regexes, needed here because an unfiltered crawl spread
+across five locale-translated copies of the same site instead of the English tree.
+
+**This corpus lives in its own database** (`citerag_web.db`) and its own golden set
+(`golden_set_web.json`) — not the Berkshire one above. Mixing them once, briefly, moved
+the Berkshire recall@5 from 0.767 to 0.75 **with no code change at all**: more chunks in
+a shared vector/FTS index changes retrieval for questions that have nothing to do with
+the new content. That's why this is a separate table rather than a continuation of the
+one above.
+
+| Config | recall@5 | MRR |
+|---|---|---|
+| baseline (`rerank_candidates`=20, `bge-reranker-base`) | 0.872 (34/39) | 0.791 |
+| + deeper candidate pool (→40) — **kept** | 0.897 (35/39) | 0.784 |
+| + `bge-reranker-large` — *measured ceiling, not the default* | **0.923 (36/39)** | **0.838** |
+
+39 hand-written questions, each `expected_answer_substring` checked against real stored
+chunk text before being trusted — some Firecrawl-fetched pages backslash-escape markdown
+punctuation, which can silently break a substring that straddles a `*`/`` ` `` boundary.
+
+Same diagnostic method as the Berkshire corpus — locate the answer-bearing chunk in a
+deep pool before tuning blind. Diagnosis: 4 of the 5 baseline misses were the re-ranker
+*demoting* an already-correctly-ranked chunk; only one was a genuine depth problem.
+Disabling re-ranking "fixed" recall to the same 0.897, but by trading 3 previously-correct
+answers for 4 different ones — a wash, not a real lever, so it was reverted.
+`bge-reranker-large` is a clean win here too, same shape as the Berkshire three-way
+test (base is underpowered, not exhausted), but it stays off by default for the same
+45s/query reason. Three misses remain unresolved: the re-ranker, at either size, still
+occasionally demotes a correct chunk on terse, list-heavy pricing/reference content — a
+real, named limitation rather than something chunk-depth or hybrid tuning fixes.
+
+Along the way this also caught two live bugs the Berkshire corpus never exercised: a
+Groq model (`llama-3.3-70b-versatile`) that had been silently decommissioned, and an
+answer model (`openai/gpt-oss-120b`) that sometimes cites with OpenAI's own file-search
+style — `【5】` instead of `[5]` — which the citation-marker regex now recognizes
+alongside the plain-bracket form it was written for.
+
 ## Claude Code skills
 
 Repeatable workflows are packaged as project skills under `.claude/skills/`, so a

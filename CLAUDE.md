@@ -49,6 +49,15 @@ decisions that were expensive to reach.
 - CI ingests the corpus and asserts a recall gate. If it fails, the retrieval got
   worse — that is the gate working.
 
+## A second corpus exists — do not mix it with the Berkshire one
+
+`POST /ingest/web` (Firecrawl) ingests a second, unrelated corpus (`docs.firecrawl.dev`)
+into its own database, `backend/data/citerag_web.db`, with its own golden set,
+`golden_set_web.json`. **Never point that ingestion route, or any web-corpus experiment,
+at the default `citerag.db`** — doing so once already moved the published Berkshire
+recall@5 from 0.767 to 0.75 with zero code changes, just from more chunks sharing the
+vector/FTS index. See the README's "second corpus" section for its own numbers.
+
 ## Environment
 
 Machine-wide constraints (PowerShell, no Docker, Groq's invisible daily cap) live in
