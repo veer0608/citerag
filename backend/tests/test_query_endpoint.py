@@ -34,8 +34,16 @@ def test_query_returns_citations(session):
     assert len(body["citations"]) <= len(body["chunks"])
     assert all(c["chunk_id"] in retrieved_ids for c in body["citations"])
     assert all(1 <= c["marker"] <= len(body["chunks"]) for c in body["citations"])
-    # An answer either cites something or is flagged unverified — never both/neither.
-    assert body["uncited"] == (len(body["citations"]) == 0)
+    # `uncited` means the MODEL declared no [n] markers of its own — that's still
+    # true even when post-hoc figure-matching attributed the answer to passages
+    # afterward (those come back with inferred=True), so uncited can coexist with a
+    # non-empty citations list. What must never happen: a declared (non-inferred)
+    # citation on an answer flagged uncited, or vice versa.
+    if body["uncited"]:
+        assert all(c["inferred"] for c in body["citations"])
+    else:
+        assert len(body["citations"]) > 0
+        assert all(not c["inferred"] for c in body["citations"])
     # Scores are only meaningful alongside the scale they're on, and every chunk in
     # one response comes from the same stage.
     assert body["score_type"] in {"cosine", "rrf", "cross-encoder"}
