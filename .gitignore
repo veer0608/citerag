@@ -14,6 +14,7 @@ venv/
 # Data / model caches
 backend/data/corpus/*.pdf
 !backend/data/corpus/.gitkeep
+backend/data/corpus_nse/*.pdf
 backend/data/*.db
 .cache/
 models/

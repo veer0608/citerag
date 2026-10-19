@@ -476,6 +476,31 @@ answer model (`openai/gpt-oss-120b`) that sometimes cites with OpenAI's own file
 style — `【5】` instead of `[5]` — which the citation-marker regex now recognizes
 alongside the plain-bracket form it was written for.
 
+## A third corpus: five companies' quarterly results
+
+The retrieval half of a market analyst agent
+([market-analyst](https://github.com/veer0608/market-analyst) answers the price
+questions). Five NSE companies' results for the quarter ended 30 June 2026: HDFC Bank's
+press release, the Infosys fact sheet, ITC's standalone results, the Reliance media
+release and the TCS press release. 59 pages, 201 chunks, no empty pages.
+
+Same rule as the web corpus: **its own database** (`citerag_nse.db`) and its own golden
+set (`golden_set_nse.json`). Both existing databases were checksummed before ingesting
+and are byte-identical afterwards.
+
+| Config | recall@5 | MRR |
+|---|---|---|
+| baseline (defaults: hybrid, `rerank_candidates`=20, `bge-reranker-base`) | 0.52 (13/25) | 0.365 |
+
+25 hand-written questions, five per company, each `expected_answer_substring` checked
+with the eval's own matcher and found only in the right company's document. There are
+no page numbers in this set: five documents share pages 1 to 5, so a page match would
+credit the wrong company.
+
+What is new here is that five documents of the same kind sit in one index. Most misses
+are numbers in tables (excise duty, net debt, segment revenue), and a table chunk such as
+"Excise duty 10035.63 1309.07 ..." never names the company the question asks about.
+
 ## Claude Code skills
 
 Repeatable workflows are packaged as project skills under `.claude/skills/`, so a
