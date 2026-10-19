@@ -9,7 +9,7 @@ The repo root holds the docs (`README.md`, `PLAN.md`).
 **The Python project is `backend/`** — everything below runs from there.
 
 - `backend/app/` — ingestion, chunking, retrieval, re-ranking, `llm.py`, the API
-- `backend/tests/` — 77 tests
+- `backend/tests/` — 84 tests
 - `backend/alembic/` — migrations
 - `backend/data/`, `backend/scripts/` — corpus and helpers
 
@@ -19,7 +19,7 @@ Run from `backend/`. Python 3.11.
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q          # 77 tests
+python -m pytest -q          # 84 tests
 ```
 
 `pytest.ini` sets `pythonpath = .` and `testpaths = tests`, so pytest must be invoked

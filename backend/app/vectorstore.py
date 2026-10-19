@@ -13,7 +13,7 @@ import re
 import struct
 from dataclasses import dataclass
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 
@@ -70,6 +70,19 @@ def upsert_chunk_fts(session: Session, rows: list[tuple[int, str]]) -> None:
         text("INSERT INTO fts_chunks(rowid, content) VALUES (:rowid, :content)"),
         [{"rowid": rowid, "content": content} for rowid, content in rows],
     )
+
+
+def document_titles(session: Session, document_ids: set[str]) -> dict[str, str]:
+    """Map document id -> title, for the documents a candidate pool came from."""
+    if not document_ids:
+        return {}
+    result = session.execute(
+        text("SELECT id, title FROM documents WHERE id IN :ids").bindparams(
+            bindparam("ids", expanding=True)
+        ),
+        {"ids": sorted(document_ids)},
+    )
+    return {str(row.id): row.title for row in result}
 
 
 def delete_document_fts(session: Session, document_id: str) -> None:

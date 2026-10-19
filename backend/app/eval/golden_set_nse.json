@@ -1,0 +1,130 @@
+{
+  "_note": "Q1 FY27 (quarter ended 30 June 2026) results of five NSE companies, corpus_nse/. Evaluated against citerag_nse.db only, never citerag.db. No page numbers: five documents share page 1-5, so a page match would credit the wrong company.",
+  "questions": [
+    {
+      "question": "What was HDFC Bank's net interest margin on total assets in the June 2026 quarter?",
+      "expected_answer": "3.26%",
+      "expected_answer_substring": "3.26% on total assets"
+    },
+    {
+      "question": "What share of HDFC Bank's gross advances were non-performing at the end of June 2026?",
+      "expected_answer": "1.17%",
+      "expected_answer_substring": "1.17% of gross advances"
+    },
+    {
+      "question": "How much of HDFC Bank's deposit base was current and savings accounts as of 30 June 2026?",
+      "expected_answer": "32.3% of total deposits",
+      "expected_answer_substring": "32.3% of total deposits"
+    },
+    {
+      "question": "What did HDFC Life earn after tax in Q1 FY27, and how does that compare with a year earlier?",
+      "expected_answer": "Rs 6.1 billion vs Rs 5.5 billion, up 11.9%",
+      "expected_answer_substring": "6.1 billion compared to"
+    },
+    {
+      "question": "How many branches did HDFC Bank operate at the end of June 2026?",
+      "expected_answer": "9,694",
+      "expected_answer_substring": "9,694 branches"
+    },
+    {
+      "question": "What were Infosys's revenues for the quarter ended June 2026, in rupees crore?",
+      "expected_answer": "Rs 48,211 crore",
+      "expected_answer_substring": "Revenues 48,211"
+    },
+    {
+      "question": "What operating margin did Infosys report for Q1 FY27?",
+      "expected_answer": "21.1%",
+      "expected_answer_substring": "Operating profit / revenue 21.1%"
+    },
+    {
+      "question": "By how much did India's new labour codes raise Infosys's gratuity and leave liabilities?",
+      "expected_answer": "Rs 1,289 crore, in FY26 employee cost",
+      "expected_answer_substring": "1,289 crore"
+    },
+    {
+      "question": "At what price per share did Infosys buy back its shares in the 2025 buyback?",
+      "expected_answer": "Rs 1,800 per share",
+      "expected_answer_substring": "1,800/- per Equity share"
+    },
+    {
+      "question": "What were Infosys's total assets on 30 June 2026?",
+      "expected_answer": "Rs 1,54,858 crore",
+      "expected_answer_substring": "Total assets 1,54,858"
+    },
+    {
+      "question": "How much excise duty did ITC pay in the June 2026 quarter?",
+      "expected_answer": "Rs 10,035.63 crore",
+      "expected_answer_substring": "Excise duty 10035.63"
+    },
+    {
+      "question": "What was ITC's standalone profit for the quarter ended June 2026?",
+      "expected_answer": "Rs 3,578.82 crore",
+      "expected_answer_substring": "PROFIT FOR THE PERIOD (7-8) 9 3578.82"
+    },
+    {
+      "question": "What EBITDA did ITC's non-cigarette FMCG businesses make in Q1 FY27?",
+      "expected_answer": "Rs 631.06 crore",
+      "expected_answer_substring": "631.06"
+    },
+    {
+      "question": "Why is ITC's gross revenue for the June 2026 quarter not comparable with earlier periods?",
+      "expected_answer": "GST compensation cess expired; excise duty on cigarettes was raised from 1 Feb 2026 and excise is included in gross revenue",
+      "expected_answer_substring": "Compensation Cess"
+    },
+    {
+      "question": "How much revenue did ITC's cigarettes segment bring in during Q1 FY27?",
+      "expected_answer": "Rs 15,383.55 crore",
+      "expected_answer_substring": "FMCG - Cigarettes 15383.55"
+    },
+    {
+      "question": "What was Reliance's consolidated EBITDA for the first quarter of FY27?",
+      "expected_answer": "Rs 54,067 crore, up 10.1%",
+      "expected_answer_substring": "54,067"
+    },
+    {
+      "question": "How much net debt did Reliance carry at the end of the June 2026 quarter?",
+      "expected_answer": "Rs 122,914 crore",
+      "expected_answer_substring": "Net Debt 122,914"
+    },
+    {
+      "question": "How many subscribers did Jio have in total after Q1 FY27?",
+      "expected_answer": "over 533 million",
+      "expected_answer_substring": "533 million"
+    },
+    {
+      "question": "What EBITDA margin did Reliance Retail report this quarter, and why did it move?",
+      "expected_answer": "7.9%, down 80 bps on investment in digital commerce",
+      "expected_answer_substring": "EBITDA margin of 7.9%"
+    },
+    {
+      "question": "How much capital did Reliance spend in the quarter to 30 June 2026?",
+      "expected_answer": "Rs 38,682 crore",
+      "expected_answer_substring": "38,682"
+    },
+    {
+      "question": "What total contract value did TCS sign in Q1 FY27?",
+      "expected_answer": "US$ 9.5 billion",
+      "expected_answer_substring": "(TCV): US$ 9.5 billion"
+    },
+    {
+      "question": "How many employees did TCS have at the end of June 2026?",
+      "expected_answer": "593,798",
+      "expected_answer_substring": "593,798"
+    },
+    {
+      "question": "When was the record date for TCS's Q1 FY27 dividend?",
+      "expected_answer": "15 July 2026, Rs 12 per share",
+      "expected_answer_substring": "Record date 15-Jul-2026"
+    },
+    {
+      "question": "How many TCS staff will get Claude under the Anthropic partnership?",
+      "expected_answer": "50,000 associates",
+      "expected_answer_substring": "50,000 associates"
+    },
+    {
+      "question": "How fast did TCS's India business grow year on year in constant currency?",
+      "expected_answer": "22.9%",
+      "expected_answer_substring": "India 5.8 6.0 6.2 7.6 22.9"
+    }
+  ]
+}

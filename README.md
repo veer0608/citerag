@@ -476,6 +476,43 @@ answer model (`openai/gpt-oss-120b`) that sometimes cites with OpenAI's own file
 style — `【5】` instead of `[5]` — which the citation-marker regex now recognizes
 alongside the plain-bracket form it was written for.
 
+## A third corpus: five companies' quarterly results
+
+The retrieval half of a market analyst agent
+([market-analyst](https://github.com/veer0608/market-analyst) answers the price
+questions). Five NSE companies' results for the quarter ended 30 June 2026: HDFC Bank's
+press release, the Infosys fact sheet, ITC's standalone results, the Reliance media
+release and the TCS press release. 59 pages, 201 chunks, no empty pages.
+
+Same rule as the web corpus: **its own database** (`citerag_nse.db`) and its own golden
+set (`golden_set_nse.json`). Both existing databases were checksummed before ingesting
+and are byte-identical afterwards.
+
+| Config | recall@5 | MRR |
+|---|---|---|
+| baseline (defaults: hybrid, `rerank_candidates`=20, `bge-reranker-base`) | 0.52 (13/25) | 0.365 |
+| + document title in front of each chunk (`chunk_title_prefix_enabled`) | **0.80 (20/25)** | **0.627** |
+
+25 hand-written questions, five per company, each `expected_answer_substring` checked
+with the eval's own matcher and found only in the right company's document. There are
+no page numbers in this set: five documents share pages 1 to 5, so a page match would
+credit the wrong company.
+
+What is new here is that five documents of the same kind sit in one index. Most misses
+are numbers in tables (excise duty, net debt, segment revenue), and a table chunk such as
+"Excise duty 10035.63 1309.07 ..." never names the company the question asks about.
+
+`chunk_title_prefix_enabled` puts the document title ("ITC Q1 FY27 standalone results")
+in front of each chunk's text for the embedding, the FTS index and the re-ranker. The
+stored chunk text is unchanged, so citations and the eval's substring matching see the
+original. It fixed 7 misses and broke none. It is baked in at ingest, so it lives in its
+own database (`citerag_nse_titled.db`), which must be queried with the setting on. It
+stays off by default because the Berkshire numbers were measured without it; a single
+company's reports have no other company to be confused with.
+
+Five misses remain: two Infosys figures (revenue, operating margin), ITC's quarterly
+profit, Reliance's net debt and Reliance Retail's EBITDA margin. Not yet diagnosed.
+
 ## Claude Code skills
 
 Repeatable workflows are packaged as project skills under `.claude/skills/`, so a

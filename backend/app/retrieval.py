@@ -95,11 +95,24 @@ def _reranker():
     return CrossEncoder(settings.reranker_model)
 
 
-def _rerank(query: str, candidates: list[RetrievedChunk], top_k: int) -> list[RetrievedChunk]:
+def _rerank(
+    query: str,
+    candidates: list[RetrievedChunk],
+    top_k: int,
+    titles: dict[str, str] | None = None,
+) -> list[RetrievedChunk]:
+    """`titles` (document_id -> title) puts each chunk's document title in front of
+    its text, matching what ingest indexed when chunk_title_prefix_enabled is on."""
     if not candidates:
         return []
     model = _reranker()
-    scores = model.predict([(query, c.content) for c in candidates])
+    titles = titles or {}
+
+    def text(c: RetrievedChunk) -> str:
+        title = titles.get(str(c.document_id))
+        return f"{title}\n{c.content}" if title else c.content
+
+    scores = model.predict([(query, text(c)) for c in candidates])
     for cand, score in zip(candidates, scores, strict=True):
         cand.score = float(score)
         cand.score_type = SCORE_CROSS_ENCODER
@@ -146,5 +159,8 @@ def retrieve(
     candidates = _candidates(session, query, hybrid=hybrid, pool=pool)
 
     if rerank:
-        return _rerank(query, candidates, top_k)
+        titles = None
+        if settings.chunk_title_prefix_enabled:
+            titles = vectorstore.document_titles(session, {str(c.document_id) for c in candidates})
+        return _rerank(query, candidates, top_k, titles)
     return candidates[:top_k]
