@@ -491,6 +491,7 @@ and are byte-identical afterwards.
 | Config | recall@5 | MRR |
 |---|---|---|
 | baseline (defaults: hybrid, `rerank_candidates`=20, `bge-reranker-base`) | 0.52 (13/25) | 0.365 |
+| + document title in front of each chunk (`chunk_title_prefix_enabled`) | **0.80 (20/25)** | **0.627** |
 
 25 hand-written questions, five per company, each `expected_answer_substring` checked
 with the eval's own matcher and found only in the right company's document. There are
@@ -500,6 +501,17 @@ credit the wrong company.
 What is new here is that five documents of the same kind sit in one index. Most misses
 are numbers in tables (excise duty, net debt, segment revenue), and a table chunk such as
 "Excise duty 10035.63 1309.07 ..." never names the company the question asks about.
+
+`chunk_title_prefix_enabled` puts the document title ("ITC Q1 FY27 standalone results")
+in front of each chunk's text for the embedding, the FTS index and the re-ranker. The
+stored chunk text is unchanged, so citations and the eval's substring matching see the
+original. It fixed 7 misses and broke none. It is baked in at ingest, so it lives in its
+own database (`citerag_nse_titled.db`), which must be queried with the setting on. It
+stays off by default because the Berkshire numbers were measured without it; a single
+company's reports have no other company to be confused with.
+
+Five misses remain: two Infosys figures (revenue, operating margin), ITC's quarterly
+profit, Reliance's net debt and Reliance Retail's EBITDA margin. Not yet diagnosed.
 
 ## Claude Code skills
 

@@ -215,6 +215,14 @@ def ingest_web_page(
     return _persist(session, url, title or url, chunks, n_pages=1, n_empty_pages=0)
 
 
+def with_title(title: str | None, content: str) -> str:
+    """The text retrieval sees for a chunk: its content, with the document title in
+    front when settings.chunk_title_prefix_enabled is on."""
+    if settings.chunk_title_prefix_enabled and title:
+        return f"{title}\n{content}"
+    return content
+
+
 def _chunk_pages(pages: list[Page]) -> list:
     if settings.chunk_strategy == "structure":
         return structure_aware_chunks(
@@ -238,7 +246,10 @@ def _persist(
     n_pages: int,
     n_empty_pages: int,
 ) -> IngestResult:
-    embeddings = embed_documents([c.content for c in chunks])
+    # The text retrieval indexes. Only differs from the stored content when the
+    # title prefix is on (see settings.chunk_title_prefix_enabled).
+    indexed = [with_title(title, c.content) for c in chunks]
+    embeddings = embed_documents(indexed)
 
     doc_id = _document_id(source_path)
 
@@ -281,8 +292,8 @@ def _persist(
 
     # Same rowids feed the FTS5 keyword index used by hybrid retrieval.
     fts_rows = [
-        (rowid_by_id[id_by_index[chunk.chunk_index]], chunk.content)
-        for chunk in chunks
+        (rowid_by_id[id_by_index[chunk.chunk_index]], text_)
+        for chunk, text_ in zip(chunks, indexed, strict=True)
     ]
     vectorstore.upsert_chunk_fts(session, fts_rows)
 

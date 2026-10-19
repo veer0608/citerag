@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     # Case-boundary splitting can't touch these, and they are ~10% of all alphabetic
     # tokens across 92% of chunks. The vocabulary is learned from the document itself.
     word_segmentation_enabled: bool = True
+    # Put the document title in front of each chunk's text wherever retrieval reads
+    # it: the embedding, the FTS index and the re-ranker. The stored chunk content is
+    # unchanged, so citations and substring matching see the original text. Aimed at
+    # a corpus of same-kind documents (five companies' results), where a table row
+    # such as "Excise duty 10035.63" never names the company a question asks about.
+    # It is baked in at ingest, so a DB must be queried with the setting it was
+    # ingested with. OFF by default: the Berkshire numbers were measured without it.
+    chunk_title_prefix_enabled: bool = False
     chunk_tokens: int = 500
     chunk_overlap_tokens: int = 50
     # Used only by the "structure" strategy.
