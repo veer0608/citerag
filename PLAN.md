@@ -257,8 +257,9 @@ is itself interview material.
 *"My naive retrieval got the right chunk a third of the time. I built an eval set of
 real questions, and it kept telling me I was wrong about what was broken — the biggest
 win wasn't the re-ranker, it was discovering that PDF extraction had welded words
-together so the keyword index couldn't match them at all. Recall went from 0.37 to
-0.77, and three of the changes I tried got rejected on the number. Here's the table."*
+together so the keyword index couldn't match them at all. On 30 questions recall went
+from 0.37 to 0.73; on a harder 60 it reaches 0.77, and three of the changes I tried got
+rejected on the number. Here's the table."*
 
 ### What the plan got wrong (worth saying out loud)
 

@@ -34,7 +34,9 @@ decisions that were expensive to reach.
 
 ## The numbers, and how not to break them
 
-- **recall@5 went 0.37 → 0.767 against a measured ceiling of 0.850** (bge-reranker-large).
+- **recall@5 is 0.767 on the 60-question set, against a measured ceiling of 0.850**
+  (bge-reranker-large). The 0.367 baseline was on the earlier 30-question set, where
+  recall@5 went 0.367 → 0.733. Never put 0.37 and 0.77 in one sentence: they are two sets.
   Those are the figures on the portfolio site and in the profile README. If a change
   moves them, the published numbers must move too — do not leave three places
   disagreeing.
